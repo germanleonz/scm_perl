@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 package InfoNodo;
 use Moose;
+use Archivo;
 use namespace::autoclean;
 
 has 'nombre'  => ( isa => 'Str', is => 'rw');
@@ -8,12 +9,12 @@ has 'pid'     => ( isa => 'Num', is => 'rw');
 has 'archivo' => (
     traits => ['Array'],
     is => 'ro',
-    isa => 'ArrayRef[Str]',
+    isa => 'ArrayRef[Archivo]',
     default => sub { [] },
     handles => {
         all_options   => 'elements',
-        add_option    => 'push',
-        count_options => 'count',
+        agregar_archivo    => 'push',
+        contar_archivos => 'count',
     });
 has 'estado'  => ( isa => 'Num', is => 'rw');
 

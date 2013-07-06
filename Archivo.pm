@@ -1,9 +1,16 @@
 #!/usr/bin/perl
 package Archivo;
 use Moose;
-use namespace::autoclean;
 
-has 'nombre'  => ( isa => 'Str', is => 'rw');
+use overload 
+    q("") => sub { return shift->nombre() };
+
+has 'nombre'  => (
+    isa => 'Str',
+    is => 'rw',
+    traits => ['String'],
+    default => q{},
+);
 has 'version' => (
     traits => ['Hash'],
     is => 'ro',
@@ -15,3 +22,6 @@ has 'version' => (
         num_options => 'count',
     });
 
+__PACKAGE__->meta->make_immutable;
+
+1;
