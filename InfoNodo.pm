@@ -2,7 +2,9 @@
 package InfoNodo;
 use Moose;
 use Archivo;
-use namespace::autoclean;
+
+use overload 
+    q("") => sub { return shift->nombre() };
 
 has 'nombre'  => ( isa => 'Str', is => 'rw');
 has 'pid'     => ( isa => 'Num', is => 'rw');

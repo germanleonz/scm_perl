@@ -1,17 +1,23 @@
 use lib qw(./lib/perl5/site_perl/5.12.4/);
 use diagnostics;
 use threads;
+use Hash::PriorityQueue;
 use Frontier::Client;
 use Frontier::Daemon;
 use RPC::XML;
 use Net::Ping;
 use Switch;
+use InfoNodo;
+use Archivo;
+
 $coord = "";
+$coordinadores = Hash::PriorityQueue->new();
 
 sub getCoord{
-  my $server_url = 'http://qirtaiba.ldc.usb.ve:8083/RPC2';
+  print "Entrando en getCoord...\n";
+  my $server_url = 'http://192.168.1.100:8083/RPC2';
   $server = Frontier::Client->new(url => $server_url, use_objects => 0);
-  my  $arg = $server->string(`hostname`);
+  my $arg = $server->string(`hostname`);
   my $result = $server->call('dns.coordinador', $arg);
   $coord = $result->{'coordinador'};
   chomp($coord);
@@ -19,30 +25,31 @@ sub getCoord{
 }
 
 sub setCoord{
-  print "entre\n";
+  print "Cambiando de coordinador...\n";
   my $coordOld = $coord;
-  &getCoord();
+  $coord = $coordinadores->pop;
   if ($coord eq $coordOld){
-    my $server_url = 'http://qirtaiba.ldc.usb.ve:8083/RPC2';
+    my $server_url = 'http://192.168.1.101:8083/RPC2';
     $server = Frontier::Client->new(url => $server_url, use_objects => 0);
     my $arg = $server->string(`hostname`);
     my $result = $server->call('dns.actualizar', $arg);
   }
 }
+
 sub checkCoord{
   while (1){
     next if ($coord eq "");
-    print "Revisando coord $coord\n";
+    #print "Revisando coord $coord\n";
     $timeout = 5;
     &setCoord() if ! pingecho($coord, $timeout);
-    print "Coord $coord\n"
+    #print "Coord $coord\n"
   }
 }
 
 # Esta rutina notifica a todos los servidores la incorporacion de este servidor
 # replica enviando con multicas su hostname y pid
 sub notificar{
-  DESTINATION => '226.1.1.4:2000';
+  use constant DESTINATION => '226.1.1.4:2000';
   my $sockF = IO::Socket::Multicast->new(Proto=>'udp',PeerAddr=>DESTINATION);
   $datos  = "1,";
   $datos .= $hostname . ",";
@@ -72,27 +79,31 @@ sub agregarServidor{
   my $nuevo = InfoNodo->new(nombre=>$servidor,pid=>$pid);
   $tablaNodos->insert($nuevo,$servidor);
 
+  $coordinadores->insert($servidor, $servidor);
 }
 
 # RPC Servidor
-{
- sub tabla{
-    return {'tabla'=> @tabla};
- }
-
- $methods = {'coordinador.tabla' => \&tabla};
- Frontier::Daemon->new(LocalPort => 8081, methods => $methods)
-    or die "Couldn't start HTTP server: $!";
+sub tabla{
+   return {'tabla'=> @tabla};
 }
 
+
 # RPC Cliente
-{
-  $server_url = 'http://localhost:8081/RPC2';
+sub get_tabla {
+  $server_url = "http://$coord:8081/RPC2";
   $server = Frontier::Client->new(url => $server_url);
   $result = $server->call('coordinador.tabla');
   $tablaNodos = $result->{'tabla'};
 
-  &agregarServidor($hostname,$pid) unless $tablaNodos{$hosname};
+  &agregarServidor($hostname,$pid) unless $tablaNodos{$hostname};
+}
+
+sub iniciar_coordinador {
+    print "Arrancando el RPC de coordinador ...\n";
+    $methods = {'coordinador.tabla' => \&tabla};
+
+    Frontier::Daemon->new(LocalPort => 8081, methods => $methods)
+       or die "Couldn't start HTTP server: $!";
 }
 
 
@@ -107,12 +118,23 @@ chomp($hostname);
 
 # Consultar al dns el coordinador
 &getCoord();
-print $coord;
+print "coordin:" . $coord . "\n";
+
+# En caso de que seamos el coordinador 
+if ($coord eq $hostname) {
+    my $tRPCCoord = threads->new(\&iniciar_coordinador);
+}
+print "LISTO\n";
 
 # Enviar a todos el hostname y pid
 &notificar() unless $coord eq $hostname;
-$getTabla()
+$coord eq $hostname ? &agregarServidor($hostname, $pid) : &get_tabla();
+
+#@values = values %tablaNodos;
+print "Imprimiendo tabla..\n";
+print while ($_ = $tablaNodos->pop);
+#print $_->nombre foreach @values;
 
 my $tCoord = threads->new(\&checkCoord);
 my $rs = $tCoord->join();
-
+my $rs = $tCoord->join();

@@ -1,0 +1,17 @@
+/home/cronos/perl5/lib/perl5/Parse/Method/Signatures.pm
+/home/cronos/perl5/lib/perl5/Parse/Method/Signatures/Param.pm
+/home/cronos/perl5/lib/perl5/Parse/Method/Signatures/Param/Bindable.pm
+/home/cronos/perl5/lib/perl5/Parse/Method/Signatures/Param/Named.pm
+/home/cronos/perl5/lib/perl5/Parse/Method/Signatures/Param/Placeholder.pm
+/home/cronos/perl5/lib/perl5/Parse/Method/Signatures/Param/Positional.pm
+/home/cronos/perl5/lib/perl5/Parse/Method/Signatures/Param/Unpacked.pm
+/home/cronos/perl5/lib/perl5/Parse/Method/Signatures/Param/Unpacked/Array.pm
+/home/cronos/perl5/lib/perl5/Parse/Method/Signatures/Param/Unpacked/Hash.pm
+/home/cronos/perl5/lib/perl5/Parse/Method/Signatures/ParamCollection.pm
+/home/cronos/perl5/lib/perl5/Parse/Method/Signatures/Sig.pm
+/home/cronos/perl5/lib/perl5/Parse/Method/Signatures/TypeConstraint.pm
+/home/cronos/perl5/lib/perl5/Parse/Method/Signatures/Types.pm
+/home/cronos/perl5/man/man3/Parse::Method::Signatures.3pm
+/home/cronos/perl5/man/man3/Parse::Method::Signatures::Param.3pm
+/home/cronos/perl5/man/man3/Parse::Method::Signatures::Sig.3pm
+/home/cronos/perl5/man/man3/Parse::Method::Signatures::TypeConstraint.3pm
