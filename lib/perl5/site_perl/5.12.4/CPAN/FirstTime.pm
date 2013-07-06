@@ -10,7 +10,7 @@ use File::Path ();
 use File::Spec ();
 use CPAN::Mirrors ();
 use vars qw($VERSION $auto_config);
-$VERSION = "5.5303";
+$VERSION = "5.5304";
 
 =head1 NAME
 
@@ -202,8 +202,8 @@ Preferred method for determining the current working directory?
 =item halt_on_failure
 
 Normally, CPAN.pm continues processing the full list of targets and
-dependencies, even if one of them fails.  However, you can specify 
-that CPAN should halt after the first failure. 
+dependencies, even if one of them fails.  However, you can specify
+that CPAN should halt after the first failure.
 
 Do you want to halt on failure (yes/no)?
 
@@ -339,7 +339,7 @@ Your choice:
 Parameters for the './Build install' command? Typical frequently used
 setting:
 
-    --uninst 1                           # uninstall conflicting files
+    --uninst 1       # uninstall conflicting files
                      # (but do NOT use with local::lib or INSTALL_BASE)
 
 Your choice:
@@ -781,8 +781,8 @@ sub init {
     if ( $args{autoconfig} ) {
         $auto_config = 1;
     } elsif ($matcher) {
-            $auto_config = 0;
-        } else {
+        $auto_config = 0;
+    } else {
         my $_conf = prompt($prompts{auto_config}, "yes");
         $auto_config = ($_conf and $_conf =~ /^y/i) ? 1 : 0;
     }
@@ -795,7 +795,7 @@ sub init {
             my $i_am_mad = 0;
             # silent prompting -- just quietly use default
             *_real_prompt = sub { return $_[1] };
-        }
+    }
 
     #
     # bootstrap local::lib or sudo
@@ -990,11 +990,11 @@ sub init {
     my_prompt_loop(prefer_installer => 'MB', $matcher, 'MB|EUMM|RAND');
 
     if (!$matcher or 'makepl_arg make_arg' =~ /$matcher/) {
-        my_dflt_prompt(makepl_arg => "INSTALLDIRS=site", $matcher);
+        my_dflt_prompt(makepl_arg => "", $matcher);
         my_dflt_prompt(make_arg => "", $matcher);
         if ( $CPAN::Config->{makepl_arg} =~ /LIBS=|INC=/ ) {
-            $CPAN::Frontend->mywarn( 
-                "Warning: Using LIBS or INC in makepl_arg will likely break distributions\n" . 
+            $CPAN::Frontend->mywarn(
+                "Warning: Using LIBS or INC in makepl_arg will likely break distributions\n" .
                 "that specify their own LIBS or INC options in Makefile.PL.\n"
             );
         }
@@ -1022,14 +1022,14 @@ sub init {
     my_dflt_prompt(make_install_arg => $CPAN::Config->{make_arg} || "",
                    $matcher);
 
-    my_dflt_prompt(mbuildpl_arg => "--installdirs site", $matcher);
+    my_dflt_prompt(mbuildpl_arg => "", $matcher);
     my_dflt_prompt(mbuild_arg => "", $matcher);
 
     if (exists $CPAN::HandleConfig::keys{mbuild_install_build_command}
         and $^O ne "MSWin32") {
         # as long as Windows needs $self->_build_command, we cannot
         # support sudo on windows :-)
-        my $default = "./Build";
+        my $default = $^O eq 'VMS' ? '@Build.com' : "./Build";
         if ( $CPAN::Config->{install_help} eq 'sudo' ) {
             if ( find_exe('sudo') ) {
                 $default = "sudo $default";
@@ -1224,9 +1224,9 @@ sub init {
             );
         }
         else {
-          $CPAN::Frontend->myprint(
-            "Autoconfigured everything but 'urllist'.\n"
-          );
+            $CPAN::Frontend->myprint(
+                "Autoconfigured everything but 'urllist'.\n"
+            );
             _do_pick_mirrors();
         }
     }
@@ -1247,8 +1247,8 @@ sub init {
             $CPAN::Frontend->myprint(
                 "Skipping local::lib bootstrap because 'urllist' is not configured.\n"
             );
-          }
-          else {
+        }
+        else {
             $CPAN::Frontend->myprint("\nAttempting to bootstrap local::lib...\n");
             $CPAN::Frontend->myprint("\nWriting $configpm for bootstrap...\n");
             delete $CPAN::Config->{install_help}; # temporary only
@@ -1268,11 +1268,11 @@ sub init {
                 $CPAN::Frontend->myprint("From the CPAN Shell, you might try 'look local::lib' and \n"
                     . "run 'perl Makefile --bootstrap' and see if that is successful.  Then\n"
                     . "restart your CPAN client\n"
-            );
+                );
             }
             else {
                 _local_lib_config();
-          }
+            }
         }
     }
 
@@ -1393,6 +1393,8 @@ sub _do_pick_mirrors {
     my $_conf = 'n';
     if ( $CPAN::META->has_usable("Net::Ping") && Net::Ping->VERSION gt '2.13') {
         $_conf = prompt($prompts{auto_pick}, "yes");
+    } else {
+        prompt("Autoselection disabled due to Net::Ping missing or insufficient. Please press ENTER");
     }
     my @old_list = @{ $CPAN::Config->{urllist} };
     if ( $_conf =~ /^y/i ) {
@@ -1515,7 +1517,7 @@ ALERT: 'make' is an essential tool for building perl Modules.
 Please make sure you have 'make' (or some equivalent) working.
 
 HERE
-                    if ($^O eq "MSWin32") {
+  if ($^O eq "MSWin32") {
     $CPAN::Frontend->mywarn(<<"HERE");
 Windows users may want to follow this procedure when back in the CPAN shell:
 
@@ -1528,7 +1530,7 @@ substitute. You can then revisit this dialog with
     o conf init make
 
 HERE
-    }
+  }
 }
 
 sub init_cpan_home {
@@ -1657,7 +1659,7 @@ sub my_prompt_loop {
 # (2) We don't have a copy at all
 #   (2a) If we are allowed to connect, we try to get a new copy.  If it succeeds,
 #        we use it, otherwise, we warn about failure
-#   (2b) If we aren't allowed to connect, 
+#   (2b) If we aren't allowed to connect,
 
 sub conf_sites {
     my %args = @_;
@@ -1732,7 +1734,7 @@ HERE
       }
       else {
         $CPAN::Frontend->mywarn(<<'HERE');
-You will need to provide CPAN mirror URLs yourself or set 
+You will need to provide CPAN mirror URLs yourself or set
 'o conf connect_to_internet_ok 1' and try again.
 HERE
       }
@@ -1851,7 +1853,9 @@ sub auto_mirrored_by {
     my $local = shift or return;
     local $|=1;
     $CPAN::Frontend->myprint("Looking for CPAN mirrors near you (please be patient)\n");
-    my $mirrors = CPAN::Mirrors->new($local);
+    my $mirrors = CPAN::Mirrors->new;
+    $mirrors->parse_mirrored_by($local);
+
     my $cnt = 0;
     my @best = $mirrors->best_mirrors(
       how_many => 3,
@@ -1860,9 +1864,11 @@ sub auto_mirrored_by {
           if ($cnt++>60) { $cnt=0; $CPAN::Frontend->myprint("\n"); }
       },
     );
+
     my $urllist = [ map { $_->http } @best ];
     push @$urllist, grep { /^file:/ } @{$CPAN::Config->{urllist}};
     $CPAN::Frontend->myprint(" done!\n\n");
+
     return $urllist
 }
 
@@ -1998,39 +2004,16 @@ later if you\'re sure it\'s right.\n},
 sub _print_urllist {
     my ($which) = @_;
     $CPAN::Frontend->myprint("$which urllist\n");
-    for ( @{$CPAN::Config->{urllist} || []} ) { 
-      $CPAN::Frontend->myprint("  $_\n") 
+    for ( @{$CPAN::Config->{urllist} || []} ) {
+      $CPAN::Frontend->myprint("  $_\n")
     };
 }
 
-# Debian modification: return true if this directory
-# or the first existing one upwards is writable
-sub _can_write_to_this_or_parent {
-    my ($dir) = @_;
-    my @parts = File::Spec->splitdir($dir);
-    while (@parts) {
-        my $cur = File::Spec->catdir(@parts);
-        return 1 if -w $cur;
-        return 0 if -e _;
-        pop @parts;
-    }
-    return 0;
-}
-
-# Debian specific modification: the site directories don't necessarily
-# exist on the system, but the build systems create them when necessary,
-# so return true if the first existing directory upwards is writable
-#
-# Furthermore, on Debian, only test the site directories
-# (installsite*, expanded to /usr/local/{share,lib}/perl),
-# not the core ones 
-# (install*lib, expanded to /usr/{share,lib}/perl).
-# We pass INSTALLDIRS=site by default to keep CPAN from touching
-# the core directories.
-
 sub _can_write_to_libdirs {
-    return _can_write_to_this_or_parent($Config{installsitelib})
-        && _can_write_to_this_or_parent($Config{installsitearch})
+    return -w $Config{installprivlib}
+        && -w $Config{installarchlib}
+        && -w $Config{installsitelib}
+        && -w $Config{installsitearch}
 }
 
 sub _using_installbase {
