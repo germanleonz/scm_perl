@@ -2660,3 +2660,25 @@ C<EXE_FILES: >
 
 =back
 
+=head2 Sat Jul  6 18:25:55 2013: C<Module> L<XML::Parser|XML::Parser>
+
+=over 4
+
+=item *
+
+C<installed into: /Users/javier/USB/XII/scm-perl/lib//lib/perl5/site_perl/5.12.4>
+
+=item *
+
+C<LINKTYPE: dynamic>
+
+=item *
+
+C<VERSION: 2.41>
+
+=item *
+
+C<EXE_FILES: >
+
+=back
+
