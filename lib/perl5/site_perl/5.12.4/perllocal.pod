@@ -1,0 +1,110 @@
+=head2 Wed Jul  3 11:07:22 2013: C<Module> L<IO::Interface|IO::Interface>
+
+=over 4
+
+=item *
+
+C<installed into: /usr/local/share/perl/5.14.2>
+
+=item *
+
+C<LINKTYPE: dynamic>
+
+=item *
+
+C<VERSION: 1.06>
+
+=item *
+
+C<EXE_FILES: >
+
+=back
+
+=head2 Wed Jul  3 11:07:25 2013: C<Module> L<IO::Socket::Multicast|IO::Socket::Multicast>
+
+=over 4
+
+=item *
+
+C<installed into: /usr/local/share/perl/5.14.2>
+
+=item *
+
+C<LINKTYPE: dynamic>
+
+=item *
+
+C<VERSION: 1.12>
+
+=item *
+
+C<EXE_FILES: >
+
+=back
+
+=head2 Wed Jul  3 11:08:26 2013: C<Module> L<CPAN|CPAN>
+
+=over 4
+
+=item *
+
+C<installed into: /usr/local/share/perl/5.14.2>
+
+=item *
+
+C<LINKTYPE: dynamic>
+
+=item *
+
+C<VERSION: 2.00>
+
+=item *
+
+C<EXE_FILES: scripts/cpan>
+
+=back
+
+=head2 Wed Jul  3 12:29:50 2013: C<Module> L<RPC::Simple|RPC::Simple>
+
+=over 4
+
+=item *
+
+C<installed into: /usr/local/share/perl/5.14.2>
+
+=item *
+
+C<LINKTYPE: dynamic>
+
+=item *
+
+C<VERSION: 1.002>
+
+=item *
+
+C<EXE_FILES: >
+
+=back
+
+=head2 Thu Jul  4 00:09:08 2013: C<Module> L<DBI|DBI>
+
+=over 4
+
+=item *
+
+C<installed into: /usr/local/share/perl/5.14.2>
+
+=item *
+
+C<LINKTYPE: dynamic>
+
+=item *
+
+C<VERSION: 1.627>
+
+=item *
+
+C<EXE_FILES: dbiproxy dbiprof dbilogstrip>
+
+=back
+
