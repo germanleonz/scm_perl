@@ -72,13 +72,6 @@ An array reference of files to be cleaned up when the C<clean> action
 is performed. See also the L<add_to_cleanup()|/"add_to_cleanup(@files)">
 method.
 
-=item allow_pureperl
-
-[version 0.4005]
-
-A bool indicating the module is still functional without its xs parts.
-When an XS module is build with --pureperl_only, it will otherwise fail.
-
 =item auto_configure_requires
 
 [version 0.34]
@@ -160,33 +153,6 @@ given module, but are not necessary for regular usage of it.  This is
 actually an important distinction - it allows for tighter control over
 the body of installed modules, and facilitates correct dependency
 checking on binary/packaged distributions of the module.
-
-See the documentation for L<Module::Build::Authoring/"PREREQUISITES">
-for the details of how requirements can be specified.
-
-=item configure_requires
-
-[version 0.30]
-
-Modules listed in this section must be installed I<before> configuring
-this distribution (i.e. before running the F<Build.PL> script).
-This might be a specific minimum version of C<Module::Build> or any
-other module the F<Build.PL> needs in order to do its stuff.  Clients
-like C<CPAN.pm> or C<CPANPLUS> will be expected to pick
-C<configure_requires> out of the F<META.yml> file and install these
-items before running the C<Build.PL>.
-
-Module::Build may automatically add itself to configure_requires.
-See L</auto_configure_requires> for details.
-
-See the documentation for L<Module::Build::Authoring/"PREREQUISITES">
-for the details of how requirements can be specified.
-
-=item test_requires
-
-[version 0.4004]
-
-Modules listed in this section must be installed before testing the distribution.
 
 See the documentation for L<Module::Build::Authoring/"PREREQUISITES">
 for the details of how requirements can be specified.
@@ -646,7 +612,7 @@ specify explicitly.
 [version 0.36]
 
 The C<needs_compiler> parameter indicates whether a compiler is required to
-build the distribution.  The default is false, unless XS files are found or
+build the distsribution.  The default is false, unless XS files are found or
 the C<c_source> parameter is set, in which case it is true.  If true,
 L<ExtUtils::CBuilder> is automatically added to C<build_requires> if needed.
 
@@ -868,17 +834,6 @@ SIGNATURE file to the MANIFEST (therefore, don't add it yourself).
 The default value is false.  In the future, the default may change to
 true if you have C<Module::Signature> installed on your system.
 
-=item tap_harness_args
-
-[version 0.2808_03]
-
-An optional parameter specifying parameters to be passed to TAP::Harness when
-running tests. Must be given as a hash reference of parameters; see the
-L<TAP::Harness|TAP::Harness> documentation for details. Note that specifying
-this parameter will implicitly set C<use_tap_harness> to a true value. You
-must therefore be sure to add TAP::Harness as a requirement for your module in
-L</build_requires>.
-
 =item test_files
 
 [version 0.23]
@@ -906,6 +861,17 @@ testing rather than Test::Harness. Defaults to false. If set to true, you must
 therefore be sure to add TAP::Harness as a requirement for your module in
 L</build_requires>. Implicitly set to a true value if C<tap_harness_args> is
 specified.
+
+=item tap_harness_args
+
+[version 0.2808_03]
+
+An optional parameter specifying parameters to be passed to TAP::Harness when
+running tests. Must be given as a hash reference of parameters; see the
+L<TAP::Harness|TAP::Harness> documentation for details. Note that specifying
+this parameter will implicitly set C<use_tap_harness> to a true value. You
+must therefore be sure to add TAP::Harness as a requirement for your module in
+L</build_requires>.
 
 =item xs_files
 
@@ -1416,22 +1382,6 @@ characters will do their special things.  If you supply multiple
 arguments, no shell will get involved and the command will be executed
 directly.
 
-=item extra_compiler_flags()
-
-=item extra_compiler_flags(@flags)
-
-[version 0.25]
-
-Set or retrieve the extra compiler flags. Returns an arrayref of flags.
-
-=item extra_linker_flags()
-
-=item extra_linker_flags(@flags)
-
-[version 0.25]
-
-Set or retrieve the extra linker flags. Returns an arrayref of flags.
-
 =item feature($name)
 
 =item feature($name => $value)
@@ -1769,7 +1719,7 @@ Examples:
 
 Returns a reference to a hash describing all prerequisites.  The keys of the
 hash will be the various prerequisite types ('requires', 'build_requires',
-'test_requires', 'configure_requires', 'recommends', or 'conflicts') and the values will be
+'configure_requires', 'recommends', or 'conflicts') and the values will be
 references to hashes of module names and version numbers.  Only prerequisites
 types that are defined will be included.  The C<prereq_data> action is just a
 thin wrapper around the C<prereq_data()> method and dumps the hash as a string
@@ -1932,8 +1882,6 @@ accessor methods for the following properties:
 
 =item allow_mb_mismatch()
 
-=item allow_pureperl()
-
 =item auto_configure_requires()
 
 =item autosplit()
@@ -2034,8 +1982,6 @@ accessor methods for the following properties:
 
 =item program_name()
 
-=item pureperl_only()
-
 =item quiet()
 
 =item recommends()
@@ -2053,8 +1999,6 @@ accessor methods for the following properties:
 =item tap_harness_args()
 
 =item test_file_exts()
-
-=item test_requires()
 
 =item use_rcfile()
 

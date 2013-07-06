@@ -2,12 +2,15 @@ use 5.006;
 use strict;
 use warnings;
 package CPAN::Meta::Prereqs;
-our $VERSION = '2.131560'; # VERSION
+BEGIN {
+  $CPAN::Meta::Prereqs::VERSION = '2.110440';
+}
+# ABSTRACT: a set of distribution prerequisites by phase and type
 
 
 use Carp qw(confess);
 use Scalar::Util qw(blessed);
-use CPAN::Meta::Requirements 2.121;
+use Version::Requirements 0.101020; # finalize
 
 
 sub __legal_phases { qw(configure build test runtime develop)   }
@@ -35,7 +38,7 @@ sub new {
 
       next TYPE unless keys %$spec;
 
-      $guts{prereqs}{$phase}{$type} = CPAN::Meta::Requirements->from_string_hash(
+      $guts{prereqs}{$phase}{$type} = Version::Requirements->from_string_hash(
         $spec
       );
     }
@@ -59,7 +62,7 @@ sub requirements_for {
     confess "requested requirements for unknown type: $type";
   }
 
-  my $req = ($self->{prereqs}{$phase}{$type} ||= CPAN::Meta::Requirements->new);
+  my $req = ($self->{prereqs}{$phase}{$type} ||= Version::Requirements->new);
 
   $req->finalize if $self->is_finalized;
 
@@ -78,7 +81,7 @@ sub with_merged_prereqs {
 
   for my $phase ($self->__legal_phases) {
     for my $type ($self->__legal_types) {
-      my $req = CPAN::Meta::Requirements->new;
+      my $req = Version::Requirements->new;
 
       for my $prereq (@prereq_objs) {
         my $this_req = $prereq->requirements_for($phase, $type);
@@ -137,13 +140,9 @@ sub clone {
 
 1;
 
-# ABSTRACT: a set of distribution prerequisites by phase and type
 
-__END__
 
 =pod
-
-=encoding utf-8
 
 =head1 NAME
 
@@ -151,7 +150,7 @@ CPAN::Meta::Prereqs - a set of distribution prerequisites by phase and type
 
 =head1 VERSION
 
-version 2.131560
+version 2.110440
 
 =head1 DESCRIPTION
 
@@ -191,10 +190,10 @@ dumping the whole set into a structure or string.
 
   my $requirements = $prereqs->requirements_for( $phase, $type );
 
-This method returns a L<CPAN::Meta::Requirements> object for the given
-phase/type combination.  If no prerequisites are registered for that
-combination, a new CPAN::Meta::Requirements object will be returned, and it may
-be added to as needed.
+This method returns a L<Version::Requirements> object for the given phase/type
+combination.  If no prerequisites are registered for that combination, a new
+Version::Requirements object will be returned, and it may be added to as
+needed.
 
 If C<$phase> or C<$type> are undefined or otherwise invalid, an exception will
 be raised.
@@ -217,7 +216,7 @@ will not alter them.
 
 This method returns a hashref containing structures suitable for dumping into a
 distmeta data structure.  It is made up of hashes and strings, only; there will
-be no Prereqs, CPAN::Meta::Requirements, or C<version> objects inside it.
+be no Prereqs, Version::Requirements, or C<version> objects inside it.
 
 =head2 is_finalized
 
@@ -262,68 +261,6 @@ Ricardo Signes <rjbs@cpan.org>
 
 =back
 
-=head1 CONTRIBUTORS
-
-=over 4
-
-=item *
-
-Ansgar Burchardt <ansgar@cpan.org>
-
-=item *
-
-Avar Arnfjord Bjarmason <avar@cpan.org>
-
-=item *
-
-Christopher J. Madsen <cjm@cpan.org>
-
-=item *
-
-Cory G Watson <gphat@cpan.org>
-
-=item *
-
-Damyan Ivanov <dam@cpan.org>
-
-=item *
-
-Eric Wilhelm <ewilhelm@cpan.org>
-
-=item *
-
-Gregor Hermann <gregoa@debian.org>
-
-=item *
-
-Ken Williams <kwilliams@cpan.org>
-
-=item *
-
-Kenichi Ishigaki <ishigaki@cpan.org>
-
-=item *
-
-Lars Dieckow <daxim@cpan.org>
-
-=item *
-
-Leon Timmermans <leont@cpan.org>
-
-=item *
-
-Mark Fowler <markf@cpan.org>
-
-=item *
-
-Michael G. Schwern <mschwern@cpan.org>
-
-=item *
-
-Randy Sims <randys@thepierianspring.org>
-
-=back
-
 =head1 COPYRIGHT AND LICENSE
 
 This software is copyright (c) 2010 by David Golden and Ricardo Signes.
@@ -332,3 +269,9 @@ This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
 
 =cut
+
+
+__END__
+
+
+

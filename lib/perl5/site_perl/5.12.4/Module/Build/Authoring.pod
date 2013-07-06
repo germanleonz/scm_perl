@@ -183,10 +183,6 @@ ways to use this distribution without having them installed.  You
 might also think of this as "can use" or "is aware of" or "changes
 behavior in the presence of".
 
-=item test_requires
-
-Items that are necessary for testing.
-
 =item conflicts
 
 Items that can cause problems with this distribution when installed.
@@ -308,7 +304,7 @@ Bug reports are also welcome at
 <http://rt.cpan.org/NoAuth/Bugs.html?Dist=Module-Build>.
 
 The latest development version is available from the Git
-repository at <https://github.com/Perl-Toolchain-Gang/Module-Build>
+repository at <https://github.com/dagolden/module-build/>
 
 
 =head1 SEE ALSO

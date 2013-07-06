@@ -2,7 +2,10 @@ use 5.006;
 use strict;
 use warnings;
 package CPAN::Meta;
-our $VERSION = '2.131560'; # VERSION
+BEGIN {
+  $CPAN::Meta::VERSION = '2.110440';
+}
+# ABSTRACT: the distribution metadata for a CPAN dist
 
 
 use Carp qw(carp croak);
@@ -10,9 +13,7 @@ use CPAN::Meta::Feature;
 use CPAN::Meta::Prereqs;
 use CPAN::Meta::Converter;
 use CPAN::Meta::Validator;
-use Parse::CPAN::Meta 1.4403 ();
-
-BEGIN { *_dclone = \&CPAN::Meta::Converter::_dclone }
+use Parse::CPAN::Meta 1.44 ();
 
 
 BEGIN {
@@ -46,7 +47,7 @@ BEGIN {
       my $value = $_[0]{ $attr };
       croak "$attr must be called in list context"
         unless wantarray;
-      return @{ _dclone($value) } if ref $value;
+      return @{ Storable::dclone($value) } if ref $value;
       return $value;
     };
   }
@@ -72,7 +73,7 @@ BEGIN {
     (my $subname = $attr) =~ s/-/_/;
     *$subname = sub {
       my $value = $_[0]{ $attr };
-      return _dclone($value) if $value;
+      return Storable::dclone($value) if $value;
       return {};
     };
   }
@@ -86,7 +87,7 @@ sub custom_keys {
 sub custom {
   my ($self, $attr) = @_;
   my $value = $self->{$attr};
-  return _dclone($value) if ref $value;
+  return Storable::dclone($value) if ref $value;
   return $value;
 }
 
@@ -214,6 +215,7 @@ sub save {
 }
 
 
+# XXX Do we need this if we always upconvert? -- dagolden, 2010-04-14
 sub meta_spec_version {
   my ($self) = @_;
   return $self->meta_spec->{version};
@@ -288,7 +290,10 @@ sub feature {
 
 sub as_struct {
   my ($self, $options) = @_;
-  my $struct = _dclone($self);
+  my $backend = Parse::CPAN::Meta->json_backend();
+  my $struct = $backend->new->decode(
+    $backend->new->convert_blessed->encode($self)
+  );
   if ( $options->{version} ) {
     my $cmc = CPAN::Meta::Converter->new( $struct );
     $struct = $cmc->convert( version => $options->{version} );
@@ -303,7 +308,7 @@ sub as_string {
   my $version = $options->{version} || '2';
 
   my $struct;
-  if ( $self->meta_spec_version ne $version ) {
+  if ( $self->version ne $version ) {
     my $cmc = CPAN::Meta::Converter->new( $self->as_struct );
     $struct = $cmc->convert( version => $version );
   }
@@ -334,13 +339,9 @@ sub TO_JSON {
 
 1;
 
-# ABSTRACT: the distribution metadata for a CPAN dist
 
-__END__
 
 =pod
-
-=encoding utf-8
 
 =head1 NAME
 
@@ -348,39 +349,25 @@ CPAN::Meta - the distribution metadata for a CPAN dist
 
 =head1 VERSION
 
-version 2.131560
+version 2.110440
 
 =head1 SYNOPSIS
 
-    use v5.10;
-    use strict;
-    use warnings;
-    use CPAN::Meta;
-    use Module::Load;
+  my $meta = CPAN::Meta->load_file('META.json');
 
-    my $meta = CPAN::Meta->load_file('META.json');
-
-    printf "testing requirements for %s version %s\n",
+  printf "testing requirements for %s version %s\n",
     $meta->name,
     $meta->version;
 
-    my $prereqs = $meta->effective_prereqs;
+  my $prereqs = $meta->requirements_for('configure');
 
-    for my $phase ( qw/configure runtime build test/ ) {
-        say "Requirements for $phase:";
-        my $reqs = $prereqs->requirements_for($phase, "requires");
-        for my $module ( sort $reqs->required_modules ) {
-            my $status;
-            if ( eval { load $module unless $module eq 'perl'; 1 } ) {
-                my $version = $module eq 'perl' ? $] : $module->VERSION;
-                $status = $reqs->accepts_module($module, $version)
-                        ? "$version ok" : "$version not ok";
-            } else {
-                $status = "missing"
-            };
-            say "  $module ($status)";
-        }
-    }
+  for my $module ($prereqs->required_modules) {
+    my $version = get_local_version($module);
+
+    die "missing required module $module" unless defined $version;
+    die "version for $module not in range"
+      unless $prereqs->accepts_module($module, $version);
+  }
 
 =head1 DESCRIPTION
 
@@ -657,10 +644,6 @@ particular keys may be retrieved with the C<custom> method.
 
 If a custom key refers to a data structure, a deep clone is returned.
 
-=for Pod::Coverage TO_JSON abstract author authors custom custom_keys description dynamic_config
-generated_by keywords license licenses meta_spec name no_index
-optional_features prereqs provides release_status resources version
-
 =head1 BUGS
 
 Please report any bugs or feature using the CPAN Request Tracker.
@@ -684,25 +667,6 @@ L<CPAN::Meta::Validator>
 
 =back
 
-=for :stopwords cpan testmatrix url annocpan anno bugtracker rt cpants kwalitee diff irc mailto metadata placeholders metacpan
-
-=head1 SUPPORT
-
-=head2 Bugs / Feature Requests
-
-Please report any bugs or feature requests through the issue tracker
-at L<http://rt.cpan.org/Public/Dist/Display.html?Name=CPAN-Meta>.
-You will be notified automatically of any progress on your issue.
-
-=head2 Source Code
-
-This is open source software.  The code repository is available for
-public review and contribution under the terms of the license.
-
-L<http://github.com/dagolden/cpan-meta>
-
-  git clone git://github.com/dagolden/cpan-meta.git
-
 =head1 AUTHORS
 
 =over 4
@@ -717,68 +681,6 @@ Ricardo Signes <rjbs@cpan.org>
 
 =back
 
-=head1 CONTRIBUTORS
-
-=over 4
-
-=item *
-
-Ansgar Burchardt <ansgar@cpan.org>
-
-=item *
-
-Avar Arnfjord Bjarmason <avar@cpan.org>
-
-=item *
-
-Christopher J. Madsen <cjm@cpan.org>
-
-=item *
-
-Cory G Watson <gphat@cpan.org>
-
-=item *
-
-Damyan Ivanov <dam@cpan.org>
-
-=item *
-
-Eric Wilhelm <ewilhelm@cpan.org>
-
-=item *
-
-Gregor Hermann <gregoa@debian.org>
-
-=item *
-
-Ken Williams <kwilliams@cpan.org>
-
-=item *
-
-Kenichi Ishigaki <ishigaki@cpan.org>
-
-=item *
-
-Lars Dieckow <daxim@cpan.org>
-
-=item *
-
-Leon Timmermans <leont@cpan.org>
-
-=item *
-
-Mark Fowler <markf@cpan.org>
-
-=item *
-
-Michael G. Schwern <mschwern@cpan.org>
-
-=item *
-
-Randy Sims <randys@thepierianspring.org>
-
-=back
-
 =head1 COPYRIGHT AND LICENSE
 
 This software is copyright (c) 2010 by David Golden and Ricardo Signes.
@@ -787,3 +689,8 @@ This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
 
 =cut
+
+
+__END__
+
+

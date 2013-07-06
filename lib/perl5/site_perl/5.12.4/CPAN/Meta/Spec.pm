@@ -3,17 +3,16 @@ use 5.006;
 use strict;
 use warnings;
 package CPAN::Meta::Spec;
-our $VERSION = '2.131560'; # VERSION
-
+BEGIN {
+  $CPAN::Meta::Spec::VERSION = '2.110440';
+}
+# ABSTRACT: specification for CPAN distribution metadata
 1;
 
-# ABSTRACT: specification for CPAN distribution metadata
+
 
 __END__
-
 =pod
-
-=encoding utf-8
 
 =head1 NAME
 
@@ -21,7 +20,7 @@ CPAN::Meta::Spec - specification for CPAN distribution metadata
 
 =head1 VERSION
 
-version 2.131560
+version 2.110440
 
 =head1 SYNOPSIS
 
@@ -32,7 +31,6 @@ version 2.131560
       . "building, testing, and installing Perl modules. "
       . "It is meant to ... blah blah blah ...",
     version  => '0.36',
-    release_status => 'stable',
     author   => [
       'Ken Williams <kwilliams@cpan.org>',
       'Module-Build List <module-build@perl.org>', # additional contact
@@ -507,12 +505,12 @@ Valid subkeys are as follows:
 =item file
 
 A I<List> of relative paths to files.  Paths B<must be> specified with
-unix conventions.
+unix convetions.
 
 =item directory
 
 A I<List> of relative paths to directories.  Paths B<must be> specified
-with unix conventions.
+with unix convetions.
 
 [ Note: previous editions of the spec had C<dir> instead of C<directory> ]
 
@@ -567,13 +565,13 @@ This entry is required and has the same structure as that of the
 C<L</prereqs>> key.  It provides a list of package requirements
 that must be satisfied for the feature to be supported or enabled.
 
-There is one crucial restriction:  the prereqs of an optional feature
+There is one crucial restriction:  the preqreqs of an optional feature
 B<must not> include C<configure> phase prereqs.
 
 =back
 
 Consumers B<must not> include optional features as prerequisites without
-explicit instruction from users (whether via interactive prompting,
+explict instruction from users (whether via interactive prompting,
 a function parameter or a configuration value, etc. ).
 
 If an optional feature is used by a consumer to add additional
@@ -659,22 +657,18 @@ PAUSE, CPAN, and search.cpan.org to build indexes saying in which
 distribution various packages can be found.
 
 The keys of C<provides> are package names that can be found within
-the distribution.  If a package name key is provided, it must
-have a Map with the following valid subkeys:
+the distribution.  The values are Maps with the following valid subkeys:
 
 =over
 
 =item file
 
-This field is required.  It must contain a Unix-style relative file path
-from the root of the distribution directory to a file that contains or
-generates the package.
+This field is required.  The value must contain a relative file path
+from the root of the distribution to the module containing the package.
 
 =item version
 
-If it exists, this field must contains a I<Version> String for the
-package.  If the package does not have a C<$VERSION>, this field must
-be omitted.
+This field contains a I<Version> String for the package, if one exists.
 
 =back
 
@@ -686,12 +680,12 @@ Example:
     license     => [ 'http://dev.perl.org/licenses/' ],
     homepage    => 'http://sourceforge.net/projects/module-build',
     bugtracker  => {
-      web    => 'http://rt.cpan.org/Public/Dist/Display.html?Name=CPAN-Meta',
+      web    => 'http://github.com/dagolden/cpan-meta-spec/issues',
       mailto => 'meta-bugs@example.com',
     },
     repository  => {
-      url  => 'git://github.com/dagolden/cpan-meta.git',
-      web  => 'http://github.com/dagolden/cpan-meta',
+      url  => 'git://github.com/dagolden/cpan-meta-spec.git',
+      web  => 'http://github.com/dagolden/cpan-meta-spec',
       type => 'git',
     },
     x_twitter   => 'http://twitter.com/cpan_linked/',
@@ -1033,10 +1027,10 @@ if both are found.
 =head2 Extracting Version Numbers from Perl Modules
 
 To get the version number from a Perl module, consumers should use the
-C<< MM->parse_version($file) >> method provided by
-L<ExtUtils::MakeMaker> or L<Module::Metadata>.  For example, for the
-module given by C<$mod>, the version may be retrieved in one of the
-following ways:
+C<< MM->parse_version($file) >> method provided by L<ExtUtils::MakeMaker> or
+the L<Module::Build::ModuleInfo> module provided with L<Module::Build>.  For
+example, for the module given by C<$mod>, the version may be retrieved in one
+of the following ways:
 
   # via ExtUtils::MakeMaker
   my $file = MM->_installed_file_for_module($mod);
@@ -1045,14 +1039,14 @@ following ways:
 The private C<_installed_file_for_module> method may be replaced with
 other methods for locating a module in C<@INC>.
 
-  # via Module::Metadata
-  my $info = Module::Metadata->new_from_module($mod);
+  # via Module::Build
+  my $info = Module::Build::ModuleInfo->new_from_module($mod);
   my $version = $info->version;
 
 If only a filename is available, the following approach may be used:
 
   # via Module::Build
-  my $info = Module::Metadata->new_from_file($file);
+  my $info = Module::Build::ModuleInfo->new_from_file($file);
   my $version = $info->version;
 
 =head2 Comparing Version Numbers
@@ -1140,68 +1134,6 @@ Ricardo Signes <rjbs@cpan.org>
 
 =back
 
-=head1 CONTRIBUTORS
-
-=over 4
-
-=item *
-
-Ansgar Burchardt <ansgar@cpan.org>
-
-=item *
-
-Avar Arnfjord Bjarmason <avar@cpan.org>
-
-=item *
-
-Christopher J. Madsen <cjm@cpan.org>
-
-=item *
-
-Cory G Watson <gphat@cpan.org>
-
-=item *
-
-Damyan Ivanov <dam@cpan.org>
-
-=item *
-
-Eric Wilhelm <ewilhelm@cpan.org>
-
-=item *
-
-Gregor Hermann <gregoa@debian.org>
-
-=item *
-
-Ken Williams <kwilliams@cpan.org>
-
-=item *
-
-Kenichi Ishigaki <ishigaki@cpan.org>
-
-=item *
-
-Lars Dieckow <daxim@cpan.org>
-
-=item *
-
-Leon Timmermans <leont@cpan.org>
-
-=item *
-
-Mark Fowler <markf@cpan.org>
-
-=item *
-
-Michael G. Schwern <mschwern@cpan.org>
-
-=item *
-
-Randy Sims <randys@thepierianspring.org>
-
-=back
-
 =head1 COPYRIGHT AND LICENSE
 
 This software is copyright (c) 2010 by David Golden and Ricardo Signes.
@@ -1210,3 +1142,4 @@ This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
 
 =cut
+
