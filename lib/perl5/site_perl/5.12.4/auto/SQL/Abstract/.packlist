@@ -1,9 +1,0 @@
-/usr/local/bin/format-sql
-/usr/local/man/man3/DBIx::Class::Storage::Debug::PrettyPrint.3pm
-/usr/local/man/man3/SQL::Abstract.3pm
-/usr/local/man/man3/SQL::Abstract::Test.3pm
-/usr/local/man/man3/SQL::Abstract::Tree.3pm
-/usr/local/share/perl/5.14.2/DBIx/Class/Storage/Debug/PrettyPrint.pm
-/usr/local/share/perl/5.14.2/SQL/Abstract.pm
-/usr/local/share/perl/5.14.2/SQL/Abstract/Test.pm
-/usr/local/share/perl/5.14.2/SQL/Abstract/Tree.pm

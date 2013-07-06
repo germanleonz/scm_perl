@@ -1,5 +1,5 @@
 # Servidor de nombre de dominio
-use lib qw(./lib/perl5/site_perl/5.12.4/);
+use lib qw(./lib/lib/perl5/site_perl/5.12.4);
 use Frontier::Client;
 use Frontier::Daemon;
 use Thread::Semaphore;
