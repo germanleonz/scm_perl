@@ -1,33 +1,49 @@
+#!/usr/bin/perl
 # Servidor de nombre de dominio
+
+use diagnostics;
+use strict;
+
 use lib qw(./lib/lib/perl5/site_perl/5.12.4);
-use Frontier::Client;
 use Frontier::Daemon;
 use Thread::Semaphore;
 
-my $semaphore = Thread::Semaphore->new(1);
+use constant DEBUG    => 1;
+use constant DNS_ADDR => '192.168.1.111';
+use constant DNS_PORT => 8083;
 
-$coord = "";
-sub coordinador{
+my $semaphore = Thread::Semaphore->new(1);
+my $coord = "";
+
+sub coordinador {
   $semaphore->down(1);   
-  $pregunta = @_[0] ;
-  if ( $coord eq ""){
-    print "Chequeando\n";
+  my $pregunta = shift;
+  if ($coord eq "") {
+    print "Chequeando\n" if DEBUG;
     $coord = $pregunta;
-    print "Coord: $coord\n";
+    print "Coord: $coord\n" if DEBUG;
   }
-  return  {'coordinador' => $coord};
   $semaphore->up(1);   
+  return {'coordinador' => $coord};
 }
 
-sub actualizar{
+sub actualizar {
   $semaphore->down(1);   
-  $coord = @_[0];
-  print "Nuevo coordinador $coord\n";
+  $coord = shift;
+  print "Nuevo coordinador: $coord\n" if DEBUG;
   $semaphore->up(1);
 } 
 
-$methods = {'dns.coordinador' => \&coordinador,
-            'dns.actualizar' => \&actualizar};
-Frontier::Daemon->new(LocalPort => 8083, methods => $methods, use_objects => 0)
-  or die "Couldn't start HTTP server: $!";
+#   Main
+my $methods = {
+    'dns.coordinador' => \&coordinador,
+    'dns.actualizar'  => \&actualizar,
+};
+
+Frontier::Daemon->new(
+    LocalAddr   => DNS_ADDR,
+    LocalPort   => DNS_PORT,
+    methods     => $methods,
+    use_objects => 0)
+  or die "No se pudo inicializar el servidor DNS: $!";
 
