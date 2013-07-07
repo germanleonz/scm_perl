@@ -1,11 +1,13 @@
 #!/usr/bin/perl
 
+use lib qw(.);
 #use lib qw(./lib/perl5/site_perl/5.12.4/);
-use lib qw(./lib/lib/perl5/site_perl/5.12.4);
-use lib qw(./lib/lib/perl5/site_perl/5.12.4/darwin-thread-multi-2level);
-use strict;
+#use lib qw(./lib/lib/perl5/site_perl/5.12.4);
+#use lib qw(./lib/lib/perl5/site_perl/5.12.4/darwin-thread-multi-2level);
 use diagnostics;
+use strict;
 use threads;
+
 use IO::Socket::Multicast;
 use Hash::PriorityQueue;
 use Frontier::Client;
@@ -18,11 +20,11 @@ use Archivo;
 use InfoNodo;
 
 use constant DEBUG          => 1;
-use constant MY_URL         => '192.168.1.111';
+use constant MY_URL         => '192.168.1.105';
 use constant MC_DESTINATION => '226.1.1.4:2000';
 use constant MC_GROUP       => '226.1.1.4';
 use constant MC_PORT        => '2000';
-use constant DNS_URL        => '192.168.1.111';
+use constant DNS_URL        => '192.168.1.105';
 use constant DNS_PORT       => '8083';
 use constant COORD_RPC_PORT => '8081';
 
@@ -46,7 +48,7 @@ sub getCoord {
     my $result = $server->call('dns.coordinador', $arg);
     $coord = $result->{'coordinador'};
     chomp($coord);
-    print "El coordinador es: $coord \n" if DEBUG;
+    print "El coordinador es: $coord\n" if DEBUG;
 }
 
 sub setCoord {
@@ -59,6 +61,7 @@ sub setCoord {
         my $arg = $server->string($hostname);
         my $result = $server->call('dns.actualizar', $arg);
     }
+    print "Coordinador cambiado\n" if DEBUG;
 }
 
 sub chequearCoord {
@@ -86,6 +89,7 @@ sub notificar {
 # Esta rutina escucha multicast y dependiendo del codigo que reciba ejecuta la
 # rutina correspondiente
 sub escuchar {
+    print "Esuchando futuras acciones como servidor replica...\n" if DEBUG;
     my $sock = IO::Socket::Multicast->new(LocalPort=>MC_PORT);
     $sock->mcast_add(MC_GROUP) || die "No se pudo asociar al grupo multicast: $!\n"; 
 
@@ -143,20 +147,20 @@ sub iniciarCoordinador {
         or die "No se pudo iniciar el servidor RPC: $!";
 }
 
-# Main()
+#
+#   Main
+#
 
-# Consultar al dns el coordinador
+#   Consultar al dns quien es el coordinador
 &getCoord();
 
-# En caso de que seamos el coordinador 
+#   En caso de que seamos el coordinador 
 my $tRPCCoord;
-print "coord:$coord\n" if DEBUG;
-print "hostname:$hostname\n" if DEBUG;
 if ($coord eq $hostname) {
     $tRPCCoord = threads->new(\&iniciarCoordinador);
 }
 
-# Enviar a todos el hostname y pid
+#   Enviar a todos el hostname y pid. 
 &notificar() unless $coord eq $hostname;
 $coord eq $hostname ? &agregarServidor($hostname, $pid) : &get_tabla();
 
@@ -166,7 +170,7 @@ $coord eq $hostname ? &agregarServidor($hostname, $pid) : &get_tabla();
 #print $_->nombre foreach @values;
 
 #   Inicia la ejecucion normal del servidor replica 
-#&escuchar();
+&escuchar();
 
 my $tCoord = threads->new(\&chequearCoord);
 my $rs = $tCoord->join();
