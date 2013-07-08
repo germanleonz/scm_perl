@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+
 package InfoNodo;
 use Moose;
 use Archivo;

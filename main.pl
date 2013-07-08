@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-use 5.014;
+use 5.010;
 
 use lib qw(.);
 use InfoNodo;

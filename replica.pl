@@ -46,29 +46,34 @@ sub getCoord {
     my $server = Frontier::Client->new(url => $server_url, use_objects => 0);
     my $arg = $server->string($hostname);
     my $result = $server->call('dns.coordinador', $arg);
-    $coord = $result->{'coordinador'};
-    chomp($coord);
-    print "El coordinador es: $coord\n" if DEBUG;
+    my $aux = $result->{'coordinador'};
+    chomp($aux);
+    print "El coordinador es: $aux\n" if DEBUG;
+    return $aux;
 }
 
 sub setCoord {
     print "Cambiando de coordinador...\n" if DEBUG;
-    my $coordOld = $coord;
-    $coord = $coordinadores->pop;
-    if ($coord eq $coordOld) {
+    $posibleCoord = $coordinadores->pop;
+    $aux = &getCoord();
+    unless ($posibleCoord eq $aux) {
         my $server_url = 'http://' . DNS_URL . ':' . DNS_PORT . '/RPC2';
         my $server = Frontier::Client->new(url => $server_url, use_objects => 0);
         my $arg = $server->string($hostname);
         my $result = $server->call('dns.actualizar', $arg);
+        print "Coordinador cambiado\n" if DEBUG;
     }
-    print "Coordinador cambiado\n" if DEBUG;
 }
 
+#   Esta rutina verifica el estado del coordinador actual
+#   En caso de darse cuenta de que el coordinador no responde
+#   lo cambia al proximo de la lista de coordinadores
+#   y actualiza al DNS en caso de alguien no lo haya hecho
 sub chequearCoord {
+    my $timeout = 7;
     while (1) {
         next if ($coord eq "");
         #print "Revisando coord $coord\n" if DEBUG;
-        my $timeout = 7;
         &setCoord() if ! pingecho($coord, $timeout);
         #print "Coord $coord\n" if DEBUG;
     }
@@ -81,7 +86,7 @@ sub notificar {
     my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
     my $datos  = "1,";
     $datos .= $hostname . ",";
-    $datos .= $pid . ",";
+    $datos .= $pid;
     $socket->send($datos) || die "No se pudo notificar al grupo: $!";
     print "Notificacion enviada al grupo multicast\n" if DEBUG;
 }
@@ -113,7 +118,7 @@ sub agregarServidor {
     my $nuevo = InfoNodo->new(nombre=>$servidor,pid=>$pid);
     $tablaNodos->insert($nuevo,$servidor);
 
-    $coordinadores->insert($servidor, $servidor);
+    $coordinadores->insert($servidor, $pid);
 }
 
 # RPC Cliente
@@ -147,12 +152,12 @@ sub iniciarCoordinador {
         or die "No se pudo iniciar el servidor RPC: $!";
 }
 
-#
+###
 #   Main
-#
+###
 
 #   Consultar al dns quien es el coordinador
-&getCoord();
+$coord = &getCoord();
 
 #   En caso de que seamos el coordinador 
 my $tRPCCoord;
