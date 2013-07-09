@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+#   Nodo del sistema distribuido de control de versiones
 
 use lib qw(.);
 #use lib qw(./lib/perl5/site_perl/5.12.4/);
@@ -33,6 +34,7 @@ my $coordinadores = Hash::PriorityQueue->new();
 my $tablaNodos = Hash::PriorityQueue->new();
 my $hostname = `hostname`;
 my $pid = getppid;
+my @threads;
 chomp($pid);
 chomp($hostname);
 
@@ -54,8 +56,8 @@ sub getCoord {
 
 sub setCoord {
     print "Cambiando de coordinador...\n" if DEBUG;
-    $posibleCoord = $coordinadores->pop;
-    $aux = &getCoord();
+    my $posibleCoord = $coordinadores->pop;
+    my $aux = &getCoord();
     unless ($posibleCoord eq $aux) {
         my $server_url = 'http://' . DNS_URL . ':' . DNS_PORT . '/RPC2';
         my $server = Frontier::Client->new(url => $server_url, use_objects => 0);
@@ -116,7 +118,7 @@ sub agregarServidor {
 
     #   Agregamos la informacion del nuevo nodo a la tabla
     my $nuevo = InfoNodo->new(nombre=>$servidor,pid=>$pid);
-    $tablaNodos->insert($nuevo,$servidor);
+    $tablaNodos->insert($nuevo,$pid);
 
     $coordinadores->insert($servidor, $pid);
 }
@@ -160,9 +162,8 @@ sub iniciarCoordinador {
 $coord = &getCoord();
 
 #   En caso de que seamos el coordinador 
-my $tRPCCoord;
 if ($coord eq $hostname) {
-    $tRPCCoord = threads->new(\&iniciarCoordinador);
+    push @threads, threads->new(\&iniciarCoordinador);
 }
 
 #   Enviar a todos el hostname y pid. 
@@ -177,6 +178,8 @@ $coord eq $hostname ? &agregarServidor($hostname, $pid) : &get_tabla();
 #   Inicia la ejecucion normal del servidor replica 
 &escuchar();
 
-my $tCoord = threads->new(\&chequearCoord);
-my $rs = $tCoord->join();
-my $rs2 = $tRPCCoord->join() if defined $tRPCCoord;
+push @threads, threads->new(\&chequearCoord);
+
+foreach (@threads) {
+    $_->join;
+}
