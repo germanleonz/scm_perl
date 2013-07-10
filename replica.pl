@@ -8,6 +8,7 @@ use lib qw(./lib/lib/perl5/site_perl/5.12.4/darwin-thread-multi-2level);
 use diagnostics;
 use strict;
 use threads;
+use threads::shared;
 
 use IO::Socket::Multicast;
 use Hash::PriorityQueue;
@@ -19,6 +20,7 @@ use Net::Ping;
 
 use Archivo;
 use InfoNodo;
+require XML::Simple;
 
 use constant DEBUG          => 1;
 use constant MC_DESTINATION => '226.1.1.4:2000';
@@ -28,16 +30,16 @@ use constant DNS_URL        => 'geidi.ldc.usb.ve';
 use constant DNS_PORT       => '8083';
 use constant COORD_RPC_PORT => '8081';
 
-my $coord = "";
-my %coordinadores = ();
-my %tablaNodos = ();
+my $coord  :shared;
+my %coordinadores :shared;
+my %tablaNodos :shared;
 my $hostname = `hostname`;
 my $my_url = gethostbyname($hostname);
 my $pid = getppid;
 my @threads;
 chomp($pid);
 chomp($hostname);
-
+my @prueba : shared = qw("a" "b");
 #
 #   Subrutinas propias de todos los servidores replica
 #
@@ -119,7 +121,7 @@ sub agregarServidor {
 
     #   Agregamos la informacion del nuevo nodo a la tabla
     my $nuevo = InfoNodo->new(nombre=>$servidor,pid=>$pid);
-    $tablaNodos{$pid} = $nuevo;
+    $tablaNodos{$pid} = share($nuevo);
 
     $coordinadores{$servidor} = $pid;
 }
@@ -130,13 +132,11 @@ sub get_tabla {
     my $server = Frontier::Client->new(url => $server_url);
     my $result = $server->call('coordinador.tabla');
 
-    my %aux = $result->{'tabla'};
-    while (my ($key, $value) = each %aux) {
-        print "$key => $value\n";
+    my $xs = XML::Simple->new(ForceArray => 1, KeepRoot => 1);
+    %tablaNodos = $xs->XMLin($result->{'tabla'});
+    while(($key,$value) = each %tablaNodos){
+      print "$key => $value\n"
     }
-
-    %tablaNodos = $result->{'tabla'};
-
     #&agregarServidor($hostname,$pid) unless $tablaNodos{$hostname};
 }
 
@@ -146,10 +146,15 @@ sub get_tabla {
 
 # Metodos RPC expuestos por el coordinador 
 sub tabla {
+
     my @arreglo_tabla = %tablaNodos;
     print "Imprimiendo tabla que se mandara...\n";
     print $_ . "\n" foreach @arreglo_tabla;
-    return {'tabla'=> @arreglo_tabla};
+    
+
+    my $xs = XML::Simple->new(ForceArray => 1, KeepRoot => 1);
+    my $xml = $xs->XMLout(%tablaNodos);
+    return {'tabla'=> $xml};
 }
 
 # Inicializa las funciones del coordinador
