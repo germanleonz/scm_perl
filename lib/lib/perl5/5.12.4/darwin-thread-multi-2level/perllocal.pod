@@ -2792,3 +2792,47 @@ C<EXE_FILES: >
 
 =back
 
+=head2 Sat Jul  6 18:47:06 2013: C<Module> L<version|version>
+
+=over 4
+
+=item *
+
+C<installed into: /Users/javier/USB/XII/scm-perl/lib//lib/perl5/site_perl/5.12.4>
+
+=item *
+
+C<LINKTYPE: dynamic>
+
+=item *
+
+C<VERSION: 0.9902>
+
+=item *
+
+C<EXE_FILES: >
+
+=back
+
+=head2 Wed Jul 10 16:43:47 2013: C<Module> L<IO::Socket::Multicast|IO::Socket::Multicast>
+
+=over 4
+
+=item *
+
+C<installed into: /Users/javier/USB/XII/scm-perl/lib//lib/perl5/site_perl/5.12.4>
+
+=item *
+
+C<LINKTYPE: dynamic>
+
+=item *
+
+C<VERSION: 1.12>
+
+=item *
+
+C<EXE_FILES: >
+
+=back
+

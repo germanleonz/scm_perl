@@ -5,12 +5,12 @@ use diagnostics;
 use strict;
 
 use lib qw(.);
-#use lib qw(./lib/lib/perl5/site_perl/5.12.4);
+use lib qw(./lib/lib/perl5/site_perl/5.12.4);
 use Frontier::Daemon;
 use Thread::Semaphore;
 
 use constant DEBUG    => 1;
-use constant DNS_ADDR => '192.168.1.105';
+use constant DNS_ADDR => 'geidi.ldc.usb.ve';
 use constant DNS_PORT => '8083';
 
 my $semaphore = Thread::Semaphore->new(1);
