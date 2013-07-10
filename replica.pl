@@ -29,8 +29,8 @@ use constant DNS_PORT       => '8083';
 use constant COORD_RPC_PORT => '8081';
 
 my $coord = "";
-my %coordinadores = {};
-my %tablaNodos = {};
+my %coordinadores = ();
+my %tablaNodos = ();
 my $hostname = `hostname`;
 my $my_url = gethostbyname($hostname);
 my $pid = getppid;
@@ -129,6 +129,12 @@ sub get_tabla {
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
     my $result = $server->call('coordinador.tabla');
+
+    my %aux = $result->{'tabla'};
+    while (my ($key, $value) = each %aux) {
+        print "$key => $value\n";
+    }
+
     %tablaNodos = $result->{'tabla'};
 
     #&agregarServidor($hostname,$pid) unless $tablaNodos{$hostname};
@@ -140,7 +146,10 @@ sub get_tabla {
 
 # Metodos RPC expuestos por el coordinador 
 sub tabla {
-    return {'tabla'=> %tablaNodos};
+    my @arreglo_tabla = %tablaNodos;
+    print "Imprimiendo tabla que se mandara...\n";
+    print $_ . "\n" foreach @arreglo_tabla;
+    return {'tabla'=> @arreglo_tabla};
 }
 
 # Inicializa las funciones del coordinador
