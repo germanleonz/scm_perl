@@ -2,9 +2,9 @@
 #   Nodo del sistema distribuido de control de versiones
 
 use lib qw(.);
-#use lib qw(./lib/perl5/site_perl/5.12.4/);
-#use lib qw(./lib/lib/perl5/site_perl/5.12.4);
-#use lib qw(./lib/lib/perl5/site_perl/5.12.4/darwin-thread-multi-2level);
+use lib qw(./lib/perl5/site_perl/5.12.4/);
+use lib qw(./lib/lib/perl5/site_perl/5.12.4);
+use lib qw(./lib/lib/perl5/site_perl/5.12.4/darwin-thread-multi-2level);
 use diagnostics;
 use strict;
 use threads;
