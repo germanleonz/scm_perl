@@ -2,9 +2,9 @@
 #   Nodo del sistema distribuido de control de versiones
 
 use lib qw(.);
-use lib qw(./lib/perl5/site_perl/5.12.4/);
-use lib qw(./lib/lib/perl5/site_perl/5.12.4);
-use lib qw(./lib/lib/perl5/site_perl/5.12.4/darwin-thread-multi-2level);
+#use lib qw(./lib/perl5/site_perl/5.12.4/);
+#use lib qw(./lib/lib/perl5/site_perl/5.12.4);
+#use lib qw(./lib/lib/perl5/site_perl/5.12.4/darwin-thread-multi-2level);
 use diagnostics;
 use strict;
 use threads;
@@ -21,7 +21,6 @@ use Archivo;
 use InfoNodo;
 
 use constant DEBUG          => 1;
-use constant MY_URL         => '192.168.1.105';
 use constant MC_DESTINATION => '226.1.1.4:2000';
 use constant MC_GROUP       => '226.1.1.4';
 use constant MC_PORT        => '2000';
@@ -30,9 +29,10 @@ use constant DNS_PORT       => '8083';
 use constant COORD_RPC_PORT => '8081';
 
 my $coord = "";
-my $coordinadores = Hash::PriorityQueue->new();
-my $tablaNodos = Hash::PriorityQueue->new();
+my %coordinadores = {};
+my %tablaNodos = {};
 my $hostname = `hostname`;
+my $my_url = gethostbyname($hostname);
 my $pid = getppid;
 my @threads;
 chomp($pid);
@@ -56,7 +56,8 @@ sub getCoord {
 
 sub setCoord {
     print "Cambiando de coordinador...\n" if DEBUG;
-    my $posibleCoord = $coordinadores->pop;
+    my @aux = sort keys %coordinadores;
+    my $posibleCoord = shift @aux;
     my $aux = &getCoord();
     unless ($posibleCoord eq $aux) {
         my $server_url = 'http://' . DNS_URL . ':' . DNS_PORT . '/RPC2';
@@ -118,9 +119,9 @@ sub agregarServidor {
 
     #   Agregamos la informacion del nuevo nodo a la tabla
     my $nuevo = InfoNodo->new(nombre=>$servidor,pid=>$pid);
-    $tablaNodos->insert($nuevo,$pid);
+    $tablaNodos{$pid} = $nuevo;
 
-    $coordinadores->insert($servidor, $pid);
+    $coordinadores{$servidor} = $pid;
 }
 
 # RPC Cliente
@@ -128,7 +129,7 @@ sub get_tabla {
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
     my $result = $server->call('coordinador.tabla');
-    my $tablaNodos = $result->{'tabla'};
+    %tablaNodos = $result->{'tabla'};
 
     #&agregarServidor($hostname,$pid) unless $tablaNodos{$hostname};
 }
@@ -139,7 +140,7 @@ sub get_tabla {
 
 # Metodos RPC expuestos por el coordinador 
 sub tabla {
-    return {'tabla'=> $tablaNodos};
+    return {'tabla'=> %tablaNodos};
 }
 
 # Inicializa las funciones del coordinador
