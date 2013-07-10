@@ -2836,3 +2836,25 @@ C<EXE_FILES: >
 
 =back
 
+=head2 Wed Jul 10 18:15:23 2013: C<Module> L<XML::Simple|XML::Simple>
+
+=over 4
+
+=item *
+
+C<installed into: /Users/javier/USB/XII/scm-perl/lib//lib/perl5/site_perl/5.12.4>
+
+=item *
+
+C<LINKTYPE: dynamic>
+
+=item *
+
+C<VERSION: 2.20>
+
+=item *
+
+C<EXE_FILES: >
+
+=back
+

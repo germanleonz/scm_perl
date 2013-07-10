@@ -134,7 +134,7 @@ sub get_tabla {
 
     my $xs = XML::Simple->new(ForceArray => 1, KeepRoot => 1);
     %tablaNodos = $xs->XMLin($result->{'tabla'});
-    while(($key,$value) = each %tablaNodos){
+    while(my($key,$value) = each %tablaNodos){
       print "$key => $value\n"
     }
     #&agregarServidor($hostname,$pid) unless $tablaNodos{$hostname};
