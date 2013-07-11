@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # Servidor de nombre de dominio
 
-use diagnostics;
+use utf8;
 use strict;
 
 use lib qw(.);

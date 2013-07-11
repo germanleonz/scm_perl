@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 package Archivo;
+use utf8;
 use Moose;
 
 use overload 

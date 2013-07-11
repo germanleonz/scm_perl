@@ -5,7 +5,7 @@ use lib qw(.);
 #use lib qw(./lib/perl5/site_perl/5.12.4/);
 ##use lib qw(./lib/lib/perl5/site_perl/5.12.4);
 #use lib qw(./lib/lib/perl5/site_perl/5.12.4/darwin-thread-multi-2level);
-use diagnostics;
+use utf8;
 use strict;
 use threads;
 use threads::shared;
@@ -23,6 +23,7 @@ use Data::Dumper;
 use Archivo;
 use InfoNodo;
 
+use constant LOG            => 1;
 use constant DEBUG          => 1;
 use constant MC_DESTINATION => '226.1.1.4:2000';
 use constant MC_GROUP       => '226.1.1.4';
@@ -164,8 +165,7 @@ sub escuchar {
 
 # Esta rutina se encarga de agregar un nuevo servidor a las tabla 
 sub agregarServidor {
-    my $servidor = shift;
-    my $pid      = shift;
+    my ($servidor, $pid) = @_;
 
     print "Agregando:$servidor:$pid\n" if DEBUG;
 
@@ -229,7 +229,6 @@ sub iniciarCoordinador {
 }
 
 #sub toTabla {
-    #my $
 
 #}
 
@@ -250,7 +249,7 @@ sub fromTabla {
 
 sub archivosToList {
    my @archivos = @_; 
-   my @result = ();
+   my @result;
    foreach (@archivos) {
        my @archivo = ();
        push @archivo, $_->nombre; #  Guardar el nombre 
@@ -261,8 +260,8 @@ sub archivosToList {
 }
 
 sub versionesToList {
-    my @versiones = shift;
-    my @result = ();
+    my @versiones = @_;
+    my @result;
     for my $pair (@versiones) {
         push @result, ($pair->[0], $pair->[1]);
     }

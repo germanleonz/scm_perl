@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 package InfoNodo;
+use utf8;
 use Moose;
 use Archivo;
 
