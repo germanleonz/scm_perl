@@ -2,9 +2,9 @@
 #   Nodo del sistema distribuido de control de versiones
 
 use lib qw(.);
-use lib qw(./lib/perl5/site_perl/5.12.4/);
-use lib qw(./lib/lib/perl5/site_perl/5.12.4);
-use lib qw(./lib/lib/perl5/site_perl/5.12.4/darwin-thread-multi-2level);
+#use lib qw(./lib/perl5/site_perl/5.12.4/);
+##use lib qw(./lib/lib/perl5/site_perl/5.12.4);
+#use lib qw(./lib/lib/perl5/site_perl/5.12.4/darwin-thread-multi-2level);
 use diagnostics;
 use strict;
 use threads;
@@ -32,7 +32,50 @@ use constant COORD_RPC_PORT => '8081';
 
 my $coord  :shared;
 my %coordinadores :shared;
-my %tablaNodos :shared;
+#my %tablaNodos :shared;
+
+#   TEMPORAL
+#my %versiones = (
+    #'version1' => 'qdsdfskjfds',
+    #'version2' => 'qskjfds');
+
+my $archivo1 = Archivo->new('nombre' => 'archivo 1');
+$archivo1->set_option('version1' => 'asdjasd', 'version2' => 'asdfasdf');
+
+my $archivo3 = Archivo->new('nombre' => 'archivo 3');
+$archivo3->set_option('version1' => 'asdjasd', 'version2' => 'asdfasdf');
+
+my $archivo4 = Archivo->new('nombre' => 'archivo 4');
+$archivo4->set_option('version1' => 'asdjasd', 'version2' => 'asdfasdf');
+
+my $nodo1 = InfoNodo->new(
+    'nombre' => "nodo 1",
+    'pid' => "123",
+    'estado' => "5",
+);
+$nodo1->agregar_archivo($archivo1, $archivo3);
+
+my $nodo2 = InfoNodo->new(
+    'nombre' => "nodo 2",
+    'pid' => "160",
+    'estado' => "2",
+);
+$nodo2->agregar_archivo($archivo4);
+
+my %tablaNodos = (
+    "123" => $nodo1,
+    "160" => $nodo2,
+);
+
+while (my($key,$value) = each %tablaNodos) {
+      print "$key => $value\n";
+}
+
+while (my($key,$value) = each &fromTabla) {
+      print "$key => $value\n";
+}
+
+
 my $hostname = `hostname`;
 my $my_url = gethostbyname($hostname);
 my $pid = getppid;
@@ -134,6 +177,7 @@ sub get_tabla {
 
     my $xs = XML::Simple->new(ForceArray => 1, KeepRoot => 1);
     %tablaNodos = $xs->XMLin($result->{'tabla'});
+
     while(my($key,$value) = each %tablaNodos){
       print "$key => $value\n"
     }
@@ -151,10 +195,15 @@ sub tabla {
     print "Imprimiendo tabla que se mandara...\n";
     print $_ . "\n" foreach @arreglo_tabla;
     
+    my %tablaListas = &fromTabla;
+    while (my($key, $value) = each %tablaListas) {
+        print "$key => $value";
+    }
 
-    my $xs = XML::Simple->new(ForceArray => 1, KeepRoot => 1);
-    my $xml = $xs->XMLout(%tablaNodos);
-    return {'tabla'=> $xml};
+    #my $xs = XML::Simple->new(ForceArray => 1, KeepRoot => 1);
+    #my $xml = $xs->XMLout(%tablaNodos);
+    #return {'tabla'=> $xml};
+    return %tablaListas;
 }
 
 # Inicializa las funciones del coordinador
@@ -169,32 +218,71 @@ sub iniciarCoordinador {
         or die "No se pudo iniciar el servidor RPC: $!";
 }
 
+#sub toTabla {
+    #my $
+
+#}
+
+sub fromTabla {
+    my %result;
+    #lock(%tablaNodos);
+    while (my($key, $infoO) = each %tablaNodos) {
+        my @infoL = ();
+        push @infoL, $infoO->nombre;
+        push @infoL, $infoO->pid;
+        push @infoL, $infoO->estado;
+
+        push @infoL, archivosToList ($infoO->archivo);
+
+        $result{"$key"} = @infoL;
+    }
+    return %result;
+}
+
+sub archivosToList {
+   my @archivos = shift; 
+   foreach (@archivos) {
+       my @archivo = ();
+       push @archivo, shift; #  Guardar el nombre 
+       push @archivo, versionesToList (shift);
+   }
+   return @archivos;
+}
+
+sub versionesToList {
+    my %versiones = shift;
+    while (my($version, $checksum) = each %versiones) {
+        $versiones{"$version"} = $checksum;
+    }
+    return %versiones;
+}
+
 ###
 #   Main
 ###
 
 #   Consultar al dns quien es el coordinador
-$coord = &getCoord();
+#$coord = &getCoord();
 
-#   En caso de que seamos el coordinador 
-if ($coord eq $hostname) {
-    push @threads, threads->new(\&iniciarCoordinador);
-}
+##   En caso de que seamos el coordinador 
+#if ($coord eq $hostname) {
+    #push @threads, threads->new(\&iniciarCoordinador);
+#}
 
-#   Enviar a todos el hostname y pid. 
-&notificar() unless $coord eq $hostname;
-$coord eq $hostname ? &agregarServidor($hostname, $pid) : &get_tabla();
+##   Enviar a todos el hostname y pid. 
+#&notificar() unless $coord eq $hostname;
+#$coord eq $hostname ? &agregarServidor($hostname, $pid) : &get_tabla();
 
-#@values = values %tablaNodos;
-#print "Imprimiendo tabla..\n";
-#print while ($_ = $tablaNodos->pop);
-#print $_->nombre foreach @values;
+##@values = values %tablaNodos;
+##print "Imprimiendo tabla..\n";
+##print while ($_ = $tablaNodos->pop);
+##print $_->nombre foreach @values;
 
-#   Inicia la ejecucion normal del servidor replica 
-&escuchar();
+##   Inicia la ejecucion normal del servidor replica 
+#&escuchar();
 
-push @threads, threads->new(\&chequearCoord);
+#push @threads, threads->new(\&chequearCoord);
 
-foreach (@threads) {
-    $_->join;
-}
+#foreach (@threads) {
+    #$_->join;
+#}
