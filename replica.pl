@@ -15,18 +15,20 @@ use Hash::PriorityQueue;
 use Frontier::Client;
 use Frontier::Daemon;
 use RPC::XML;
+use XML::Simple;
 use Net::Ping;
+use Data::Dumper;
 #use Switch;
 
 use Archivo;
 use InfoNodo;
-require XML::Simple;
 
 use constant DEBUG          => 1;
 use constant MC_DESTINATION => '226.1.1.4:2000';
 use constant MC_GROUP       => '226.1.1.4';
 use constant MC_PORT        => '2000';
-use constant DNS_URL        => 'geidi.ldc.usb.ve';
+#use constant DNS_URL        => 'geidi.ldc.usb.ve';
+use constant DNS_URL        => 'localhost';
 use constant DNS_PORT       => '8083';
 use constant COORD_RPC_PORT => '8081';
 
@@ -40,13 +42,13 @@ my %coordinadores :shared;
     #'version2' => 'qskjfds');
 
 my $archivo1 = Archivo->new('nombre' => 'archivo 1');
-$archivo1->set_option('version1' => 'asdjasd', 'version2' => 'asdfasdf');
+$archivo1->agregar_version('version1' => 'asdjasd', 'version2' => 'asdfasdf');
 
 my $archivo3 = Archivo->new('nombre' => 'archivo 3');
-$archivo3->set_option('version1' => 'asdjasd', 'version2' => 'asdfasdf');
+$archivo3->agregar_version('version1' => 'asdsd', 'version2' => 'sdf');
 
 my $archivo4 = Archivo->new('nombre' => 'archivo 4');
-$archivo4->set_option('version1' => 'asdjasd', 'version2' => 'asdfasdf');
+$archivo4->agregar_version('version1' => 'djasd', 'version2' => 'fasdf');
 
 my $nodo1 = InfoNodo->new(
     'nombre' => "nodo 1",
@@ -67,14 +69,19 @@ my %tablaNodos = (
     "160" => $nodo2,
 );
 
+
 while (my($key,$value) = each %tablaNodos) {
-      print "$key => $value\n";
+      print "$key =>";
+      print Dumper $value;
 }
+print "LISTO\n";
 
-while (my($key,$value) = each &fromTabla) {
-      print "$key => $value\n";
+my %tablaComoLista = &fromTabla();
+
+while (my($key,$value) = each %tablaComoLista) {
+      print "$key =>";
+      print Dumper $value;
 }
-
 
 my $hostname = `hostname`;
 my $my_url = gethostbyname($hostname);
@@ -173,15 +180,19 @@ sub agregarServidor {
 sub get_tabla {
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
-    my $result = $server->call('coordinador.tabla');
 
-    my $xs = XML::Simple->new(ForceArray => 1, KeepRoot => 1);
-    %tablaNodos = $xs->XMLin($result->{'tabla'});
+    %tablaNodos = $server->call('coordinador.tabla');
 
-    while(my($key,$value) = each %tablaNodos){
+    print "Tabla recibida del coordinador ...\n" if DEBUG;
+    while(my($key,$value) = each %tablaNodos) {
       print "$key => $value\n"
     }
+    print "La tabla recibida ya fue impresa.\n" if DEBUG;
+
+    #my $xs = XML::Simple->new(ForceArray => 1, KeepRoot => 1);
+    #%tablaNodos = $xs->XMLin($result->{'tabla'});
     #&agregarServidor($hostname,$pid) unless $tablaNodos{$hostname};
+    1;
 }
 
 #
@@ -191,19 +202,18 @@ sub get_tabla {
 # Metodos RPC expuestos por el coordinador 
 sub tabla {
 
-    my @arreglo_tabla = %tablaNodos;
-    print "Imprimiendo tabla que se mandara...\n";
-    print $_ . "\n" foreach @arreglo_tabla;
-    
     my %tablaListas = &fromTabla;
+
+    print "Tabla que se va a enviar...\n" if DEBUG;
     while (my($key, $value) = each %tablaListas) {
         print "$key => $value";
     }
+    print "Tabla Impresa.\n" if DEBUG;
 
     #my $xs = XML::Simple->new(ForceArray => 1, KeepRoot => 1);
     #my $xml = $xs->XMLout(%tablaNodos);
     #return {'tabla'=> $xml};
-    return %tablaListas;
+    1;
 }
 
 # Inicializa las funciones del coordinador
@@ -225,36 +235,38 @@ sub iniciarCoordinador {
 
 sub fromTabla {
     my %result;
-    #lock(%tablaNodos);
     while (my($key, $infoO) = each %tablaNodos) {
         my @infoL = ();
         push @infoL, $infoO->nombre;
         push @infoL, $infoO->pid;
         push @infoL, $infoO->estado;
+        my @array = $infoO->archivos_todos;
+        push @infoL, archivosToList (@array);
 
-        push @infoL, archivosToList ($infoO->archivo);
-
-        $result{"$key"} = @infoL;
+        $result{"$key"} = \@infoL;
     }
     return %result;
 }
 
 sub archivosToList {
-   my @archivos = shift; 
+   my @archivos = @_; 
+   my @result = ();
    foreach (@archivos) {
        my @archivo = ();
-       push @archivo, shift; #  Guardar el nombre 
-       push @archivo, versionesToList (shift);
+       push @archivo, $_->nombre; #  Guardar el nombre 
+       push @archivo, versionesToList ($_->pares_version_cs);
+       push @result, @archivo;
    }
-   return @archivos;
+   return @result;
 }
 
 sub versionesToList {
-    my %versiones = shift;
-    while (my($version, $checksum) = each %versiones) {
-        $versiones{"$version"} = $checksum;
+    my @versiones = shift;
+    my @result = ();
+    for my $pair (@versiones) {
+        push @result, ($pair->[0], $pair->[1]);
     }
-    return %versiones;
+    return @result;
 }
 
 ###

@@ -12,7 +12,7 @@ use overload
                 $imp .= $this->pid() . ',';
                 $imp .= $this->estado() . ',';
                 #my @algo = $this->all_options;
-                $imp .= $this->all_options;
+                $imp .= $this->archivos_todos;
                 return $imp };
 
 has 'nombre'  => ( isa => 'Str', is => 'rw');
@@ -20,12 +20,12 @@ has 'pid'     => ( isa => 'Num', is => 'rw');
 has 'estado'  => ( isa => 'Num', is => 'rw');
 has 'archivo' => (
     traits => ['Array'],
-    is => 'ro',
+    is => 'rw',
     isa => 'ArrayRef[Archivo]',
     default => sub { [] },
     handles => {
-        all_options   => 'elements',
-        agregar_archivo    => 'push',
+        archivos_todos  => 'elements',
+        agregar_archivo => 'push',
         contar_archivos => 'count',
     });
 

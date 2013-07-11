@@ -10,7 +10,7 @@ use Frontier::Daemon;
 use Thread::Semaphore;
 
 use constant DEBUG    => 1;
-use constant DNS_ADDR => 'geidi.ldc.usb.ve';
+use constant DNS_ADDR => 'localhost';
 use constant DNS_PORT => '8083';
 
 my $semaphore = Thread::Semaphore->new(1);

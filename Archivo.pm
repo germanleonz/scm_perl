@@ -20,14 +20,14 @@ has 'nombre'  => (
 );
 has 'version' => (
     traits => ['Hash'],
-    is => 'ro',
+    is => 'rw',
     isa => 'HashRef[Str]',
     default => sub { {} },
     handles => {
-        set_option  => 'set',
-        get_option  => 'get',
-        num_options => 'count',
-        option_pairs => 'kv',
+        agregar_version  => 'set',
+        get_version  => 'get',
+        contar_versiones => 'count',
+        pares_version_cs => 'kv',
     });
 
 __PACKAGE__->meta->make_immutable;
