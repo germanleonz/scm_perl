@@ -116,7 +116,12 @@ sub escuchar {
     while (1) {
         my $data;
         next unless $sock->recv($data,1024);
+
+        print "Me llego un mensaje de multicast\n";
+
         my @datos = split(',',$data);
+
+        #   Aqui se debe verificar el tipo de mensaje que llego
 
         &agregarServidor($datos[1], $datos[2]) if ($datos[0] eq "1");
     }
@@ -177,7 +182,6 @@ sub getTabla {
     print "IMPRIMIENDO LO QUE ME LLEGO\n";
     while(my($key,$value) = each %tablaNodos) {
         print "$key=>\n";
-        bless ($value, 'InfoNodo');
         print Dumper $value;
     }
     print "TABLA IMPRESA LO QUE ME LLEGO\n";
