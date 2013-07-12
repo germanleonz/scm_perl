@@ -110,14 +110,20 @@ sub notificar {
 # rutina correspondiente
 sub escuchar {
     print "Esuchando futuras acciones como servidor replica...\n" if DEBUG;
-    my $sock = IO::Socket::Multicast->new(LocalPort=>MC_PORT);
+
+    print "PORT" . MC_PORT . "\n";
+    print "GROUP" . MC_GROUP . "\n";
+    print "DESTINATIO" . MC_DESTINATION . "\n";
+
+    my $sock = IO::Socket::Multicast->new(Proto=>'udp', LocalPort=>MC_PORT);
     $sock->mcast_add(MC_GROUP) || die "No se pudo asociar al grupo multicast: $!\n"; 
 
     while (1) {
         my $data;
+        print "Esperando una accion...\n" if DEBUG;
         next unless $sock->recv($data,1024);
 
-        print "Me llego un mensaje de multicast\n";
+        print "Me llego un mensaje de multicast\n" if DEBUG;
 
         my @datos = split(',',$data);
 
@@ -338,7 +344,9 @@ if ($coord eq $hostname) {
 }
 
 #   Inicia la ejecucion normal del servidor replica 
-&escuchar();
+my $t = threads->new(\&escuchar());
+$t->join();
+
 
 #push @threads, threads->new(\&escuchar);
 #push @threads, threads->new(\&chequearCoord);
