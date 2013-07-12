@@ -10,7 +10,7 @@ use Frontier::Daemon;
 use Thread::Semaphore;
 
 use constant DEBUG    => 1;
-use constant DNS_ADDR => '192.168.3.39';
+use constant DNS_ADDR => '192.168.2.79';
 use constant DNS_PORT => '8083';
 
 my $semaphore = Thread::Semaphore->new(1);
