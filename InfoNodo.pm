@@ -27,6 +27,7 @@ has 'archivo' => (
     handles => {
         archivos_todos  => 'elements',
         agregar_archivo => 'push',
+        buscar_archivo  => 'get',
         contar_archivos => 'count',
     });
 

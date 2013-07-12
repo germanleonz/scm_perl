@@ -34,63 +34,62 @@ use constant DNS_PORT       => '8083';
 use constant COORD_RPC_PORT => '8081';
 
 my $coord  :shared;
-my %coordinadores :shared;
-#my %tablaNodos :shared;
+my %tablaNodos :shared;
 
 #   TEMPORAL
-#my %versiones = (
-    #'version1' => 'qdsdfskjfds',
-    #'version2' => 'qskjfds');
+#my $archivo1 = Archivo->new('nombre' => 'archivo 1');
+#$archivo1->agregar_version('version1' => 'asdjasd', 'version2' => 'asdfasdf');
 
-my $archivo1 = Archivo->new('nombre' => 'archivo 1');
-$archivo1->agregar_version('version1' => 'asdjasd', 'version2' => 'asdfasdf');
+#my $archivo3 = Archivo->new('nombre' => 'archivo 3');
+#$archivo3->agregar_version('version1' => 'asdsd', 'version2' => 'sdf');
 
-my $archivo3 = Archivo->new('nombre' => 'archivo 3');
-$archivo3->agregar_version('version1' => 'asdsd', 'version2' => 'sdf');
+#my $archivo4 = Archivo->new('nombre' => 'archivo 4');
+#$archivo4->agregar_version('version1' => 'djasd', 'version2' => 'fasdf');
 
-my $archivo4 = Archivo->new('nombre' => 'archivo 4');
-$archivo4->agregar_version('version1' => 'djasd', 'version2' => 'fasdf');
+#my $nodo1 = InfoNodo->new(
+    #'nombre' => "nodo 1",
+    #'pid' => "123",
+    #'estado' => "5",
+#);
+#$nodo1->agregar_archivo($archivo1, $archivo3);
 
-my $nodo1 = InfoNodo->new(
-    'nombre' => "nodo 1",
-    'pid' => "123",
-    'estado' => "5",
-);
-$nodo1->agregar_archivo($archivo1, $archivo3);
+#my $nodo2 = InfoNodo->new(
+    #'nombre' => "nodo 2",
+    #'pid' => "160",
+    #'estado' => "2",
+#);
+#$nodo2->agregar_archivo($archivo4);
 
-my $nodo2 = InfoNodo->new(
-    'nombre' => "nodo 2",
-    'pid' => "160",
-    'estado' => "2",
-);
-$nodo2->agregar_archivo($archivo4);
-
-my %tablaNodos = (
-    "123" => $nodo1,
-    "160" => $nodo2,
-);
+#my %tablaNodos = (
+    #"123" => $nodo1,
+    #"160" => $nodo2,
+#);
 
 
-while (my($key,$value) = each %tablaNodos) {
-      print "$key =>";
-      print Dumper $value;
-}
-print "LISTO\n";
+#while (my($key,$value) = each %tablaNodos) {
+      #print "$key =>";
+      #print Dumper $value;
+#}
+#print "LISTO\n";
 
-my %tablaComoLista = &fromTabla();
+#my %tablaComoLista = &fromTabla();
 
-while (my($key,$value) = each %tablaComoLista) {
-      print "$key =>";
-      print Dumper $value;
-}
+#while (my($key,$value) = each %tablaComoLista) {
+      #print "$key =>";
+      #print Dumper $value;
+#}
+#   TEMPORAL
+
+#   Variables globales de un servidor replica
 
 my $hostname = `hostname`;
 my $my_url = gethostbyname($hostname);
-my $pid = getppid;
+my $my_pid = getppid;
 my @threads;
-chomp($pid);
+chomp($my_pid);
 chomp($hostname);
 my @prueba : shared = qw("a" "b");
+
 #
 #   Subrutinas propias de todos los servidores replica
 #
@@ -109,7 +108,7 @@ sub getCoord {
 
 sub setCoord {
     print "Cambiando de coordinador...\n" if DEBUG;
-    my @aux = sort keys %coordinadores;
+    my @aux = sort keys %tablaNodos;
     my $posibleCoord = shift @aux;
     my $aux = &getCoord();
     unless ($posibleCoord eq $aux) {
@@ -142,7 +141,7 @@ sub notificar {
     my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
     my $datos  = "1,";
     $datos .= $hostname . ",";
-    $datos .= $pid;
+    $datos .= $my_pid;
     $socket->send($datos) || die "No se pudo notificar al grupo: $!";
     print "Notificacion enviada al grupo multicast\n" if DEBUG;
 }
@@ -170,18 +169,33 @@ sub agregarServidor {
     print "Agregando:$servidor:$pid\n" if DEBUG;
 
     #   Agregamos la informacion del nuevo nodo a la tabla
-    my $nuevo = InfoNodo->new(nombre=>$servidor,pid=>$pid);
-    $tablaNodos{$pid} = share($nuevo);
-
-    $coordinadores{$servidor} = $pid;
+    my $nodo = $tablaNodos{"$pid"}; 
+    if (defined $nodo) {
+    } else {
+        my $nuevo = InfoNodo->new(nombre=>$servidor,pid=>$pid);
+        $tablaNodos{$pid} = share($nuevo);
+    }
 }
 
+sub wipe {
+    #body ...
+}
+
+ sub chequearReplicas {
+     #body ...
+ }
+
 # RPC Cliente
-sub get_tabla {
+
+sub getTabla {
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
 
-    %tablaNodos = $server->call('coordinador.tabla');
+    my %tablaLista = $server->call('coordinador.tabla');
+
+    %tablaNodos = toTabla(%tablaLista);
+
+    &getTabla() unless exists $tablaNodos{"$my_pid"};
 
     print "Tabla recibida del coordinador ...\n" if DEBUG;
     while(my($key,$value) = each %tablaNodos) {
@@ -189,9 +203,8 @@ sub get_tabla {
     }
     print "La tabla recibida ya fue impresa.\n" if DEBUG;
 
-    #my $xs = XML::Simple->new(ForceArray => 1, KeepRoot => 1);
-    #%tablaNodos = $xs->XMLin($result->{'tabla'});
-    #&agregarServidor($hostname,$pid) unless $tablaNodos{$hostname};
+    wipe($my_pid) if $tablaNodos{$my_pid}->contar_archivos() == 0;
+
     1;
 }
 
@@ -210,10 +223,7 @@ sub tabla {
     }
     print "Tabla Impresa.\n" if DEBUG;
 
-    #my $xs = XML::Simple->new(ForceArray => 1, KeepRoot => 1);
-    #my $xml = $xs->XMLout(%tablaNodos);
-    #return {'tabla'=> $xml};
-    1;
+    return %tablaListas;
 }
 
 # Inicializa las funciones del coordinador
@@ -228,9 +238,10 @@ sub iniciarCoordinador {
         or die "No se pudo iniciar el servidor RPC: $!";
 }
 
-#sub toTabla {
-
-#}
+sub toTabla {
+    my %result;
+    %result;
+}
 
 sub fromTabla {
     my %result;
@@ -268,32 +279,32 @@ sub versionesToList {
     return @result;
 }
 
-###
-#   Main
-###
+############
+#   Main   #
+############
 
 #   Consultar al dns quien es el coordinador
-#$coord = &getCoord();
+$coord = &getCoord();
 
-##   En caso de que seamos el coordinador 
-#if ($coord eq $hostname) {
-    #push @threads, threads->new(\&iniciarCoordinador);
-#}
+#   En caso de que seamos el coordinador 
+if ($coord eq $hostname) {
+    push @threads, threads->new(\&iniciarCoordinador);
+}
 
-##   Enviar a todos el hostname y pid. 
-#&notificar() unless $coord eq $hostname;
-#$coord eq $hostname ? &agregarServidor($hostname, $pid) : &get_tabla();
+#   Enviar a todos el hostname y pid. 
+&notificar() unless $coord eq $hostname;
+$coord eq $hostname ? &agregarServidor($hostname, $my_pid) : &getTabla();
 
-##@values = values %tablaNodos;
-##print "Imprimiendo tabla..\n";
-##print while ($_ = $tablaNodos->pop);
-##print $_->nombre foreach @values;
+#@values = values %tablaNodos;
+#print "Imprimiendo tabla..\n";
+#print while ($_ = $tablaNodos->pop);
+#print $_->nombre foreach @values;
 
-##   Inicia la ejecucion normal del servidor replica 
-#&escuchar();
+#   Inicia la ejecucion normal del servidor replica 
+&escuchar();
 
-#push @threads, threads->new(\&chequearCoord);
+push @threads, threads->new(\&chequearCoord);
 
-#foreach (@threads) {
-    #$_->join;
-#}
+foreach (@threads) {
+    $_->join;
+}
