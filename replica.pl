@@ -131,8 +131,11 @@ sub agregarServidor {
     my $nodo = $tablaNodos{"$pid"}; 
     if (defined $nodo) {
     } else {
-        my $nuevo = InfoNodo->new(nombre=>$servidor,pid=>$pid);
-        $tablaNodos{$pid} = share($nuevo);
+        my $nuevo :shared = shared_clone(InfoNodo->new);
+        bless ($nuevo, 'InfoNodo');
+        $nuevo->nombre($servidor);
+        $nuevo->pid($pid);
+        $tablaNodos{$pid} = $nuevo;
     }
 }
 
@@ -169,6 +172,10 @@ sub getTabla {
 
     my %tablaLista = $server->call('coordinador.tabla');
 
+    print "IMPRIMIENDO LO QUE ME LLEGO\n";
+    print Dumper %tablaLista;
+    print "TABLA IMPRESA LO QUE ME LLEGO\n";
+
     %tablaNodos = toTabla(%tablaLista);
 
     &getTabla() unless exists $tablaNodos{"$my_pid"};
@@ -192,7 +199,13 @@ sub getTabla {
 sub tabla {
 
     print "Alguien pidio mi tabla\n";
-    my %tablaListas = &fromTabla;
+    print "Imprimiendo Tabla local como hash de InfoNodos\n" if DEBUG;
+    while (my($key, $value) = each %tablaNodos) {
+        print "$key =>";
+        print Dumper $value;
+    }
+    print "Impresa la Tabla local como hash de InfoNodos\n" if DEBUG;
+    my %tablaListas = &fromTabla();
 
     print "Tabla que se va a enviar...\n" if DEBUG;
     while (my($key, $value) = each %tablaListas) {
@@ -248,37 +261,41 @@ sub toTabla {
 #   Transforma el hash de listas con la informacion de los nodos del sistema
 #   en un hash de InfoNodo para trabajar localmente con la informacion
 sub fromTabla {
+    print "FROM TABLA\n";
     my %result;
     while (my($key, $infoO) = each %tablaNodos) {
+        print "Entrando:$key";
+        print Dumper $infoO;
         my @infoL = ();
         push @infoL, $infoO->nombre;
         push @infoL, $infoO->pid;
         push @infoL, $infoO->estado;
+        print "nodo como lista @infoL\n";
         my @array = $infoO->archivos_todos;
-        push @infoL, archivosToList (@array);
+        push @infoL, &archivosToList (@array);
+
 
         $result{"$key"} = \@infoL;
     }
+    print "SALIENDO DE FROM TABLA\n";
     return %result;
 }
 
 sub archivosToList {
+    print "archivos to list\n";
     my @archivos = @_; 
-    if (@archivos == 0) {
-        return ();
-    } else {
-        my @result;
-        foreach (@archivos) {
-            my @archivo = ();
-            push @archivo, $_->nombre; #  Guardar el nombre 
-            push @archivo, versionesToList ($_->pares_version_cs);
-            push @result, @archivo;
-        }
-        return @result;
+    my @result;
+    foreach (@archivos) {
+        my @archivo = ();
+        push @archivo, $_->nombre; #  Guardar el nombre 
+        push @archivo, &versionesToList ($_->pares_version_cs);
+        push @result, @archivo;
     }
+    return @result;
 }
 
 sub versionesToList {
+    print "versiones to list\n";
     my @versiones = @_;
     my @result;
     for my $pair (@versiones) {
@@ -290,6 +307,7 @@ sub versionesToList {
 ############
 #   Main   #
 ############
+
 
 #   Consultar al dns quien es el coordinador
 $coord = &getCoord();
