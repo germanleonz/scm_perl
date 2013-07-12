@@ -175,6 +175,10 @@ sub getTabla {
     my %tablaLista = $result->{'tabla'};
 
     print "IMPRIMIENDO LO QUE ME LLEGO\n";
+    while(my($key,$value) = each %tablaLista) {
+        print "$key=>\n";
+        print Dumper $value;
+    }
     print Dumper %tablaLista;
     print "TABLA IMPRESA LO QUE ME LLEGO\n";
 
