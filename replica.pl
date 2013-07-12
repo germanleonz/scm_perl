@@ -12,6 +12,7 @@ use threads::shared;
 
 use IO::Socket::Multicast;
 use IO::Socket::PortState qw(check_ports);
+#use Hash::PriorityQueue;
 use Frontier::Client;
 use Frontier::Daemon;
 use RPC::XML;
