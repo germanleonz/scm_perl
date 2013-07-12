@@ -22,6 +22,7 @@ my $coord = "";
 sub coordinador {
     $semaphore->down(1);   
     my $pregunta = shift;
+    print "Procesando solicitud de $pregunta\n" if DEBUG;
     if ($coord eq "") {
         print "Inicializando el coordinador...\n" if DEBUG;
         $coord = $pregunta;
