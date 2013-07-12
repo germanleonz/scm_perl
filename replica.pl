@@ -17,6 +17,7 @@ use Frontier::Daemon;
 use RPC::XML;
 use Net::Ping;
 use Data::Dumper;
+use XML::Dumper;
 
 use Archivo;
 use InfoNodo;
@@ -181,20 +182,20 @@ sub getTabla {
     my $server = Frontier::Client->new(url => $server_url);
 
     my $result = $server->call('coordinador.tabla');
-    %tablaNodos = $result->{'tabla'};
+    my %tablaXML = $result->{'tabla'};
 
     print "IMPRIMIENDO LO QUE ME LLEGO\n";
-    while(my($key,$value) = each %tablaNodos) {
+    while(my($key,$value) = each %tablaXML) {
         print "$key=>\n";
         print Dumper $value;
     }
     print "TABLA IMPRESA LO QUE ME LLEGO\n";
 
-    #%tablaNodos = toTabla(%tablaLista);
+    %tablaNodos = &fromXML2Tabla(%tablaXML);
 
-    #&getTabla() unless exists $tablaNodos{"$my_pid"};
+    &getTabla() unless exists $tablaNodos{"$my_pid"};
 
-    wipe($my_pid) if $tablaNodos{$my_pid}->contar_archivos() == 0;
+    #wipe($my_pid) if $tablaNodos{$my_pid}->contar_archivos() == 0;
 
     1;
 }
@@ -213,17 +214,16 @@ sub tabla {
         print Dumper $value;
     }
     print "Impresa la Tabla local como hash de InfoNodos\n" if DEBUG;
-    my %tablaListas = &fromTabla();
+    my %tablaXML = &fromTabla2XML();
 
     print "Tabla que se va a enviar...\n" if DEBUG;
-    while (my($key, $value) = each %tablaListas) {
+    while (my($key, $value) = each %tablaXML) {
         print "$key =>";
         print Dumper $value;
     }
     print "Tabla Impresa.\n" if DEBUG;
 
-    #return {'tabla' => %tablaNodos};
-    return {'tabla' => %tablaListas};
+    return {'tabla' => %tablaXML};
 }
 
 #   Inicializa las funciones del coordinador
@@ -262,55 +262,27 @@ sub replicarServidor {
 
 #   Transforma el hash de InfoNodos en formato de listas para transmitirlo
 #   por RPC
-sub toTabla {
+sub fromXML2Tabla {
+    my %tablaXML = shift;
     my %result;
-    %result;
+
+    while (my($key, $xml) = each %tablaXML) {
+        my $infoO = xml2pl($xml);
+        $result{$key} = $infoO;
+    }
+    return %result;
 }
 
 #   Transforma el hash de listas con la informacion de los nodos del sistema
 #   en un hash de InfoNodo para trabajar localmente con la informacion
-sub fromTabla {
-    print "FROM TABLA\n";
+sub fromTabla2XML {
     my %result;
+
     while (my($key, $infoO) = each %tablaNodos) {
-        print "Entrando:$key";
-        print Dumper $infoO;
-        my @infoL = ();
-        push @infoL, $infoO->nombre;
-        push @infoL, $infoO->pid;
-        push @infoL, $infoO->estado;
-        print "nodo como lista @infoL\n";
-        my @array = $infoO->archivos_todos;
-        push @infoL, &archivosToList (@array);
-
-
-        $result{"$key"} = \@infoL;
+        my $xml = pl2xml($infoO);
+        $result{$key} = $xml;
     }
-    print "SALIENDO DE FROM TABLA\n";
-    return %result;
-}
-
-sub archivosToList {
-    print "archivos to list\n";
-    my @archivos = @_; 
-    my @result;
-    foreach (@archivos) {
-        my @archivo = ();
-        push @archivo, $_->nombre; #  Guardar el nombre 
-        push @archivo, &versionesToList ($_->pares_version_cs);
-        push @result, @archivo;
-    }
-    return @result;
-}
-
-sub versionesToList {
-    print "versiones to list\n";
-    my @versiones = @_;
-    my @result;
-    for my $pair (@versiones) {
-        push @result, ($pair->[0], $pair->[1]);
-    }
-    return @result;
+    %result;
 }
 
 ############
