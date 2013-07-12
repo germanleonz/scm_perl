@@ -172,17 +172,17 @@ sub getTabla {
     my $server = Frontier::Client->new(url => $server_url);
 
     my $result = $server->call('coordinador.tabla');
-    my %tablaLista = $result->{'tabla'};
+    %tablaNodos = $result->{'tabla'};
 
     print "IMPRIMIENDO LO QUE ME LLEGO\n";
-    while(my($key,$value) = each %tablaLista) {
+    while(my($key,$value) = each %tablaNodos) {
         print "$key=>\n";
+        bless ($value, 'InfoNodo');
         print Dumper $value;
     }
-    print Dumper %tablaLista;
     print "TABLA IMPRESA LO QUE ME LLEGO\n";
 
-    %tablaNodos = toTabla(%tablaLista);
+    #%tablaNodos = toTabla(%tablaLista);
 
     &getTabla() unless exists $tablaNodos{"$my_pid"};
 
