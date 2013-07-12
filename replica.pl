@@ -210,17 +210,17 @@ sub tabla {
         print "$key =>";
         print Dumper $value;
     }
-    print "Impresa la Tabla local como hash de InfoNodos\n" if DEBUG;
-    my %tablaListas = &fromTabla();
+    #print "Impresa la Tabla local como hash de InfoNodos\n" if DEBUG;
+    #my %tablaListas = &fromTabla();
 
-    print "Tabla que se va a enviar...\n" if DEBUG;
-    while (my($key, $value) = each %tablaListas) {
-        print "$key =>";
-        print Dumper $value;
-    }
-    print "Tabla Impresa.\n" if DEBUG;
+    #print "Tabla que se va a enviar...\n" if DEBUG;
+    #while (my($key, $value) = each %tablaListas) {
+        #print "$key =>";
+        #print Dumper $value;
+    #}
+    #print "Tabla Impresa.\n" if DEBUG;
 
-    return {'tabla' => %tablaListas};
+    return {'tabla' => %tablaNodos};
 }
 
 #   Inicializa las funciones del coordinador
