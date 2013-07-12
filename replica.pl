@@ -19,7 +19,6 @@ use RPC::XML;
 #use XML::Simple;
 use Net::Ping;
 use Data::Dumper;
-#use Switch;
 
 use Archivo;
 use InfoNodo;
@@ -143,18 +142,19 @@ sub wipe {
     #body ...
 }
 
+#   Metodo que monitorea el estado de los servidores replica del sistema
 sub chequearReplicas {
     my %porthash = {};
     #my $timeout = 5;
     while (1) {
         foreach my $replica (values %tablaNodos) {
             my $nombre_replica = $replica->nombre;
-            print "Revisando: $replica->nombre\n" if DEBUG;
+            print "Revisando: $\n" if DEBUG;
             $porthash{"$nombre_replica"} = MC_PORT;
             if (!$porthash{"$nombre_replica"}->{open}) {
                 print "Servidor $nombre_replica no responde.\n" if DEBUG;
                 $tablaNodos{"$replica->pid"}->bajar_contador;
-                &notificarServidorMuerto();
+                &notificarServidorMuerto($nombre_replica);
                 &replicarServidor();
             } else {
                 print "Todo bien con $nombre_replica.\n" if DEBUG;
@@ -162,7 +162,6 @@ sub chequearReplicas {
         }
     }
 }
-
 
 #   Metodos expuestos por RPC en los servidores replica
 sub getTabla {
@@ -193,11 +192,13 @@ sub getTabla {
 # Metodos RPC expuestos por el coordinador 
 sub tabla {
 
+    print "Alguien pidio mi tabla\n";
     my %tablaListas = &fromTabla;
 
     print "Tabla que se va a enviar...\n" if DEBUG;
     while (my($key, $value) = each %tablaListas) {
-        print "$key => $value";
+        print "$key =>";
+        print Dumper $value;
     }
     print "Tabla Impresa.\n" if DEBUG;
 
@@ -264,14 +265,18 @@ sub fromTabla {
 
 sub archivosToList {
     my @archivos = @_; 
-    my @result;
-    foreach (@archivos) {
-        my @archivo = ();
-        push @archivo, $_->nombre; #  Guardar el nombre 
-        push @archivo, versionesToList ($_->pares_version_cs);
-        push @result, @archivo;
+    if (@archivos == 0) {
+        return ();
+    } else {
+        my @result;
+        foreach (@archivos) {
+            my @archivo = ();
+            push @archivo, $_->nombre; #  Guardar el nombre 
+            push @archivo, versionesToList ($_->pares_version_cs);
+            push @result, @archivo;
+        }
+        return @result;
     }
-    return @result;
 }
 
 sub versionesToList {
@@ -306,13 +311,13 @@ $coord eq $hostname ? &agregarServidor($hostname, $my_pid) : &getTabla();
 #print $_->nombre foreach @values;
 
 if ($coord eq $hostname) {
-    threads->new(\&chequearReplicas)->detach;
+    #threads->new(\&chequearReplicas)->detach;
 } else {
     threads->new(\&chequearCoord)->detach;
 }
 
 #   Inicia la ejecucion normal del servidor replica 
-threads->new(\&escuchar)->detach;
+&escuchar();
 
 #push @threads, threads->new(\&escuchar);
 #push @threads, threads->new(\&chequearCoord);
