@@ -2,8 +2,8 @@
 #   Nodo del sistema distribuido de control de versiones
 
 use lib qw(.);
-#use lib qw(./lib/perl5/site_perl/5.12.4/);
-##use lib qw(./lib/lib/perl5/site_perl/5.12.4);
+use lib qw(./lib/perl5/site_perl/5.12.4/);
+use lib qw(./lib/lib/perl5/site_perl/5.12.4);
 #use lib qw(./lib/lib/perl5/site_perl/5.12.4/darwin-thread-multi-2level);
 use utf8;
 use strict;
@@ -12,11 +12,9 @@ use threads::shared;
 
 use IO::Socket::Multicast;
 use IO::Socket::PortState qw(check_ports);
-#use Hash::PriorityQueue;
 use Frontier::Client;
 use Frontier::Daemon;
 use RPC::XML;
-#use XML::Simple;
 use Net::Ping;
 use Data::Dumper;
 
@@ -28,7 +26,7 @@ use constant DEBUG          => 1;
 use constant MC_DESTINATION => '226.1.1.4:2000';
 use constant MC_GROUP       => '226.1.1.4';
 use constant MC_PORT        => '2000';
-use constant DNS_URL        => 'sheeana.ldc.usb.ve';
+use constant DNS_URL        => 'stealth.ldc.usb.ve';
 use constant DNS_PORT       => '8083';
 use constant COORD_RPC_PORT => '8081';
 

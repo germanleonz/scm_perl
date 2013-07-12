@@ -10,7 +10,7 @@ use Frontier::Daemon;
 use Thread::Semaphore;
 
 use constant DEBUG    => 1;
-use constant DNS_ADDR => 'sheena.ldc.usb.ve';
+use constant DNS_URL => 'stealth.ldc.usb.ve';
 use constant DNS_PORT => '8083';
 
 my $semaphore = Thread::Semaphore->new(1);
@@ -48,7 +48,7 @@ my $methods = {
 
 print "Inicializando servicios de DNS...\n" if DEBUG;
 Frontier::Daemon->new(
-    LocalAddr   => DNS_ADDR,
+    LocalAddr   => DNS_URL,
     LocalPort   => DNS_PORT,
     methods     => $methods,
     )
