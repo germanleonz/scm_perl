@@ -28,8 +28,7 @@ use constant DEBUG          => 1;
 use constant MC_DESTINATION => '226.1.1.4:2000';
 use constant MC_GROUP       => '226.1.1.4';
 use constant MC_PORT        => '2000';
-#use constant DNS_URL        => 'geidi.ldc.usb.ve';
-use constant DNS_URL        => '192.168.2.79';
+use constant DNS_URL        => 'sheeana.ldc.usb.ve';
 use constant DNS_PORT       => '8083';
 use constant COORD_RPC_PORT => '8081';
 
