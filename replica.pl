@@ -12,11 +12,11 @@ use threads::shared;
 
 use IO::Socket::Multicast;
 use IO::Socket::PortState qw(check_ports);
-use Hash::PriorityQueue;
+#use Hash::PriorityQueue;
 use Frontier::Client;
 use Frontier::Daemon;
 use RPC::XML;
-use XML::Simple;
+#use XML::Simple;
 use Net::Ping;
 use Data::Dumper;
 #use Switch;
