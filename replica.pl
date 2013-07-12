@@ -11,6 +11,7 @@ use threads;
 use threads::shared;
 
 use IO::Socket::Multicast;
+use IO::Socket::PortState qw(check_ports);
 use Hash::PriorityQueue;
 use Frontier::Client;
 use Frontier::Daemon;
@@ -29,66 +30,20 @@ use constant MC_DESTINATION => '226.1.1.4:2000';
 use constant MC_GROUP       => '226.1.1.4';
 use constant MC_PORT        => '2000';
 #use constant DNS_URL        => 'geidi.ldc.usb.ve';
-use constant DNS_URL        => 'localhost';
+use constant DNS_URL        => '192.168.3.39';
 use constant DNS_PORT       => '8083';
 use constant COORD_RPC_PORT => '8081';
 
-my $coord  :shared;
-my %tablaNodos :shared;
-
-#   TEMPORAL
-#my $archivo1 = Archivo->new('nombre' => 'archivo 1');
-#$archivo1->agregar_version('version1' => 'asdjasd', 'version2' => 'asdfasdf');
-
-#my $archivo3 = Archivo->new('nombre' => 'archivo 3');
-#$archivo3->agregar_version('version1' => 'asdsd', 'version2' => 'sdf');
-
-#my $archivo4 = Archivo->new('nombre' => 'archivo 4');
-#$archivo4->agregar_version('version1' => 'djasd', 'version2' => 'fasdf');
-
-#my $nodo1 = InfoNodo->new(
-    #'nombre' => "nodo 1",
-    #'pid' => "123",
-    #'estado' => "5",
-#);
-#$nodo1->agregar_archivo($archivo1, $archivo3);
-
-#my $nodo2 = InfoNodo->new(
-    #'nombre' => "nodo 2",
-    #'pid' => "160",
-    #'estado' => "2",
-#);
-#$nodo2->agregar_archivo($archivo4);
-
-#my %tablaNodos = (
-    #"123" => $nodo1,
-    #"160" => $nodo2,
-#);
-
-
-#while (my($key,$value) = each %tablaNodos) {
-      #print "$key =>";
-      #print Dumper $value;
-#}
-#print "LISTO\n";
-
-#my %tablaComoLista = &fromTabla();
-
-#while (my($key,$value) = each %tablaComoLista) {
-      #print "$key =>";
-      #print Dumper $value;
-#}
-#   TEMPORAL
 
 #   Variables globales de un servidor replica
-
+my $coord  :shared;
+my %tablaNodos :shared;
 my $hostname = `hostname`;
 my $my_url = gethostbyname($hostname);
 my $my_pid = getppid;
 my @threads;
 chomp($my_pid);
 chomp($hostname);
-my @prueba : shared = qw("a" "b");
 
 #
 #   Subrutinas propias de todos los servidores replica
@@ -125,12 +80,18 @@ sub setCoord {
 #   lo cambia al proximo de la lista de coordinadores
 #   y actualiza al DNS en caso de alguien no lo haya hecho
 sub chequearCoord {
-    my $timeout = 7;
+    my %porthash = {"$coord" => COORD_RPC_PORT};
+    my $timeout = 5;
     while (1) {
+        sleep($timeout);
         next if ($coord eq "");
-        #print "Revisando coord $coord\n" if DEBUG;
-        &setCoord() if ! pingecho($coord, $timeout);
-        #print "Coord $coord\n" if DEBUG;
+        print "Revisando coordinador: $coord\n" if DEBUG;
+        if (!$porthash{"$coord"}->{open}) {
+            print "Coordinador muerto. Cambiando coordinador\n" if DEBUG;
+            &setCoord();
+        } else {
+            print "Coordinador $coord activo.\n" if DEBUG;
+        }
     }
 }
 
@@ -162,7 +123,7 @@ sub escuchar {
     }
 }
 
-# Esta rutina se encarga de agregar un nuevo servidor a las tabla 
+#   Esta rutina se encarga de agregar un nuevo servidor a la tabla 
 sub agregarServidor {
     my ($servidor, $pid) = @_;
 
@@ -177,16 +138,33 @@ sub agregarServidor {
     }
 }
 
+#   
 sub wipe {
     #body ...
 }
 
- sub chequearReplicas {
-     #body ...
- }
+sub chequearReplicas {
+    my %porthash = {};
+    #my $timeout = 5;
+    while (1) {
+        foreach my $replica (values %tablaNodos) {
+            my $nombre_replica = $replica->nombre;
+            print "Revisando: $replica->nombre\n" if DEBUG;
+            $porthash{"$nombre_replica"} = MC_PORT;
+            if (!$porthash{"$nombre_replica"}->{open}) {
+                print "Servidor $nombre_replica no responde.\n" if DEBUG;
+                $tablaNodos{"$replica->pid"}->bajar_contador;
+                &notificarServidorMuerto();
+                &replicarServidor();
+            } else {
+                print "Todo bien con $nombre_replica.\n" if DEBUG;
+            }
+        }
+    }
+}
 
-# RPC Cliente
 
+#   Metodos expuestos por RPC en los servidores replica
 sub getTabla {
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
@@ -199,7 +177,7 @@ sub getTabla {
 
     print "Tabla recibida del coordinador ...\n" if DEBUG;
     while(my($key,$value) = each %tablaNodos) {
-      print "$key => $value\n"
+        print "$key => $value\n"
     }
     print "La tabla recibida ya fue impresa.\n" if DEBUG;
 
@@ -226,7 +204,7 @@ sub tabla {
     return %tablaListas;
 }
 
-# Inicializa las funciones del coordinador
+#   Inicializa las funciones del coordinador
 sub iniciarCoordinador {
     print "Arrancando el RPC de coordinador ...\n" if DEBUG;
 
@@ -238,11 +216,37 @@ sub iniciarCoordinador {
         or die "No se pudo iniciar el servidor RPC: $!";
 }
 
+#   Metodos locales del coordinador
+
+#   Subrutina que avisa por multicast a los nodos del sistema que un 
+#   servidor replica murio
+sub notificarServidorMuerto {
+    my $servidor = shift;
+    print "Notificando la caida del servidor $servidor.\n" if DEBUG;
+    my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
+    my $datos  = "2,";  #   2 es el codigo para indicar que un servidor murio
+    $datos .= $hostname;
+    $socket->send($datos) || die "No se pudo notificar al grupo: $!";
+    print "Notificacion enviada al grupo multicast\n" if DEBUG;
+    1;
+}
+
+#   Subrutina que replica los archivos de un servidor que haya muerto en los demas
+#   nodos del sistema. Debe garantizar balanceo de cargas y tolerancia suficiente
+sub replicarServidor {
+    my $servidor = shift;
+    1;
+}
+
+#   Transforma el hash de InfoNodos en formato de listas para transmitirlo
+#   por RPC
 sub toTabla {
     my %result;
     %result;
 }
 
+#   Transforma el hash de listas con la informacion de los nodos del sistema
+#   en un hash de InfoNodo para trabajar localmente con la informacion
 sub fromTabla {
     my %result;
     while (my($key, $infoO) = each %tablaNodos) {
@@ -259,15 +263,15 @@ sub fromTabla {
 }
 
 sub archivosToList {
-   my @archivos = @_; 
-   my @result;
-   foreach (@archivos) {
-       my @archivo = ();
-       push @archivo, $_->nombre; #  Guardar el nombre 
-       push @archivo, versionesToList ($_->pares_version_cs);
-       push @result, @archivo;
-   }
-   return @result;
+    my @archivos = @_; 
+    my @result;
+    foreach (@archivos) {
+        my @archivo = ();
+        push @archivo, $_->nombre; #  Guardar el nombre 
+        push @archivo, versionesToList ($_->pares_version_cs);
+        push @result, @archivo;
+    }
+    return @result;
 }
 
 sub versionesToList {
@@ -288,7 +292,8 @@ $coord = &getCoord();
 
 #   En caso de que seamos el coordinador 
 if ($coord eq $hostname) {
-    push @threads, threads->new(\&iniciarCoordinador);
+    #push @threads, threads->new(\&iniciarCoordinador);
+    threads->new(\&iniciarCoordinador)->detach;
 }
 
 #   Enviar a todos el hostname y pid. 
@@ -300,11 +305,18 @@ $coord eq $hostname ? &agregarServidor($hostname, $my_pid) : &getTabla();
 #print while ($_ = $tablaNodos->pop);
 #print $_->nombre foreach @values;
 
-#   Inicia la ejecucion normal del servidor replica 
-&escuchar();
-
-push @threads, threads->new(\&chequearCoord);
-
-foreach (@threads) {
-    $_->join;
+if ($coord eq $hostname) {
+    threads->new(\&chequearReplicas)->detach;
+} else {
+    threads->new(\&chequearCoord)->detach;
 }
+
+#   Inicia la ejecucion normal del servidor replica 
+threads->new(\&escuchar)->detach;
+
+#push @threads, threads->new(\&escuchar);
+#push @threads, threads->new(\&chequearCoord);
+
+#foreach (@threads) {
+    #$_->join;
+#}

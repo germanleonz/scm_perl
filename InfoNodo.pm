@@ -18,7 +18,17 @@ use overload
 
 has 'nombre'  => ( isa => 'Str', is => 'rw');
 has 'pid'     => ( isa => 'Num', is => 'rw');
-has 'estado'  => ( isa => 'Num', is => 'rw');
+has 'estado'  => (
+    traits  => ['Counter'],
+    isa     => 'Num',
+    is      => 'rw',
+    default => 5,
+    handles => {
+        aumentar_contador => 'inc',
+        bajar_contador    => 'dec',
+        reset_contador    => 'reset',
+    },
+);
 has 'archivo' => (
     traits => ['Array'],
     is => 'rw',
