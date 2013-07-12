@@ -171,7 +171,8 @@ sub getTabla {
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
 
-    my %tablaLista = $server->call('coordinador.tabla');
+    my $result = $server->call('coordinador.tabla');
+    my %tablaLista = $result->{'tabla'};
 
     print "IMPRIMIENDO LO QUE ME LLEGO\n";
     print Dumper %tablaLista;
@@ -215,7 +216,7 @@ sub tabla {
     }
     print "Tabla Impresa.\n" if DEBUG;
 
-    return %tablaListas;
+    return {'tabla' => %tablaListas};
 }
 
 #   Inicializa las funciones del coordinador
