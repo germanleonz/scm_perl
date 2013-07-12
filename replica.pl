@@ -188,13 +188,7 @@ sub getTabla {
 
     #%tablaNodos = toTabla(%tablaLista);
 
-    &getTabla() unless exists $tablaNodos{"$my_pid"};
-
-    print "Tabla recibida del coordinador ...\n" if DEBUG;
-    while(my($key,$value) = each %tablaNodos) {
-        print "$key => $value\n"
-    }
-    print "La tabla recibida ya fue impresa.\n" if DEBUG;
+    #&getTabla() unless exists $tablaNodos{"$my_pid"};
 
     wipe($my_pid) if $tablaNodos{$my_pid}->contar_archivos() == 0;
 
