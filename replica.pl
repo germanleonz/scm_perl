@@ -277,6 +277,26 @@ sub tabla {
     return {'tabla' => $tablaStr};
 }
 
+# Esta rutina recibe un archivo del cliente para hacer el commit.
+# Se verifica que el checksum del archivo recibido sea distinto al 
+# checksum de la ultima version, de lo contrario no se realiza el commit
+sub clienteCommit{
+    my $archivo = shift;
+    my $check = &commit($archivo);
+    if ($check){
+        return {'clienteCommit' =>"$archivo Up to date\n"};
+    }else{     
+        return {'clienteCommit' => "Commit realizado\n"};
+    }
+}
+
+sub clientePull{
+    my $archivo = shift;
+    my $archivo = shift;
+    &pull($archivo,$version);
+    return {'clientePull' => 1};
+}
+
 #   Inicializa las funciones del coordinador
 sub iniciarCoordinador {
     print "Arrancando el RPC de coordinador ...\n" if DEBUG;
@@ -289,6 +309,8 @@ sub iniciarCoordinador {
     #   Metodos expuestos por RPC por el coordinador
     my $methods = {
         'coordinador.tabla' => \&tabla,
+        'coordinador.clienteCommit' => \&clienteCommit,
+        'coordinador.clientePull' => \&clientePull,
     };
     Frontier::Daemon->new(LocalPort => COORD_RPC_PORT, methods => $methods)
         or die "No se pudo iniciar el servidor RPC: $!";

@@ -10,8 +10,15 @@ use constant K => 3;
 
 sub commit {
     my $archivo = shift;
-    my ($version, @replicas) = &getRep($archivo);
-    &send2rep($archivo,$version+1,@replicas);
+    my $checksum = &checksum($archivo);
+    my ($version, $checksumL,@replicas) = &getRep($archivo);
+    
+    if ($checksum ne $checksumL){
+        &send2rep($archivo,$version+1,@replicas)
+        return 0;
+    }else{
+        return 1;
+    }
 }
 
 sub pull{
@@ -38,7 +45,7 @@ sub pull{
 
 sub arreglarRep{
     my $archivo = shift;
-    my $version = shift;
+    ey $version = shift;
     my @replicas = @_;
 
     &send2rep($archivo,$version,@replicas);
@@ -65,7 +72,7 @@ sub checksum{
 sub validarChecksum{
     my $archivo = shift;
     my $version = shift;
-    my @replicas =  &getRep($archivo);
+    my ($v,$c,@replicas) =  &getRep($archivo);
     my %checksums;
     shift @replicas;
     foreach(@replicas){
@@ -148,14 +155,16 @@ sub getRep{
     my $archivo = shift;
     my $version = 0;
     my @replicas;
+    my $checksum;
     while (my($pid, $rep) = each %tablaNodos) {
         my $arch = $rep->get($archivo); 
         if (defined($arch)){
             push(@replicas,$rep->nombre);
-            $version = $arch->count;
+            $version = $arch->contar_versiones;
+            $checksum = $arch->get_version($version);
         }
         @replicas = &lowRep if (!@replicas);
-        return ($version,@replicas);
+        return ($version,$checksum,@replicas);
     }
 }
 
