@@ -10,7 +10,7 @@ use Frontier::Daemon;
 use Thread::Semaphore;
 
 use constant DEBUG    => 1;
-use constant DNS_URL => 'stealth.ldc.usb.ve';
+use constant DNS_URL => 'titan.ldc.usb.ve';
 use constant DNS_PORT => '8083';
 
 my $semaphore = Thread::Semaphore->new(1);
@@ -22,7 +22,7 @@ my $coord = "";
 sub coordinador {
     $semaphore->down(1);   
     my $pregunta = shift;
-    print "Procesando solicitud de $pregunta\n" if DEBUG;
+    print "Procesando solicitud de $pregunta... " if DEBUG;
     if ($coord eq "") {
         print "Inicializando el coordinador...\n" if DEBUG;
         $coord = $pregunta;

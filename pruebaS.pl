@@ -17,8 +17,6 @@ use constant DNS_URL        => 'stealth.ldc.usb.ve';
 use constant DNS_PORT       => '8083';
 use constant COORD_RPC_PORT => '8081';
 
-my @enviar;
-
 my $archivo1 = Archivo->new('nombre' => 'archivo 1');
 $archivo1->agregar_version('version1' => 'asdjasd', 'version2' => 'asdfasdf');
 
@@ -33,7 +31,7 @@ my $nodo1 = InfoNodo->new(
     'pid' => "123",
     'estado' => "5",
 );
-$nodo1->agregar_archivo($archivo1, $archivo3);
+#$nodo1->agregar_archivo($archivo1, $archivo3);
 
 
 my $nodo2 = InfoNodo->new(
@@ -41,87 +39,70 @@ my $nodo2 = InfoNodo->new(
     'pid' => "160",
     'estado' => "2",
 );
-$nodo2->agregar_archivo($archivo4);
+#$nodo2->agregar_archivo($archivo4);
 
 my %tablaNodos = (
     "123" => $nodo1,
     "160" => $nodo2,
 );
 
-#while (my($key,$value) = each %tablaNodos) {
-#      print "$key =>";
-#      print Dumper $value;
-#}
+print "COMENZANDO\n";
+print Dumper \%tablaNodos;
+my $tablaComoStr = &fromTabla2Str();
+print Dumper $tablaComoStr;
+my %tablaNodos2 = &fromStr2Tabla($tablaComoStr);
+print Dumper \%tablaNodos2;
+print "FIN\n";
 
-print "LISTO\n";
+sub fromTabla2Str {
+    my $string = "";
+    foreach (values %tablaNodos) {
+        $string .= $_;
+    }
+    return $string;
+}
 
-my %tablaComoLista = &fromTabla();
 
-#while (my($key,$value) = each %tablaComoLista) {
-#      print "$key =>";
-#      print Dumper $value;
-#}
-
-sub fromTabla {
+sub fromStr2Tabla {
+    my $tablaStr = shift;
     my %result;
-    while (my($key, $infoO) = each %tablaNodos) {
-        my @infoL = ();
-        push @infoL, $infoO->nombre;
-        push @infoL, $infoO->pid;
-        push @infoL, $infoO->estado;
-        my @array = $infoO->archivos_todos;
-        push @infoL, &archivosToList (@array);
-
-        $result{"$key"} = \@infoL;
+    my @arrayIN = split ('&', $tablaStr); 
+    foreach (@arrayIN) {
+        my @attr = split ('\#', $_);
+        my @nep = split (',', shift @attr);
+        my $nombre = shift @nep;
+        my $pid    = shift @nep;
+        my $estado = shift @nep;
+        my $nodo = InfoNodo->new(
+            'nombre' => $nombre,
+            'pid'    => $pid,
+            'estado' => $estado,
+        );
+        #  Agregando archivos
+        foreach (@attr) {
+            my @archivoArray = split (',', $_);
+            my $nombre_archivo = shift @archivoArray;
+            my $archivo = Archivo->new('nombre' => $nombre_archivo);
+            while (@archivoArray > 0) {
+                my $version = shift @archivoArray;
+                my $checksum = shift @archivoArray;
+                $archivo->agregar_version(
+                    $version => $checksum,
+                );
+            }
+            $nodo->agregar_archivo($archivo);
+        }
+        $result{$pid} = $nodo;
     }
-    return %result;
+    %result;
 }
 
-sub archivosToList {
-    my @archivos = @_; 
-    my @result;
-    foreach (@archivos) {
-        my @archivo = ();
-        push @archivo, $_->nombre; #  Guardar el nombre 
-        push @archivo, &versionesToList ($_->pares_version_cs);
-        push @result, @archivo;
-    }
-    return @result;
-}
+#sub tabla {
+    #return {'tabla' => %tablaNodos}
+#}
 
-sub versionesToList {
-    my @versiones = @_;
-    my @result;
-    for my $pair (@versiones) {
-        push @result, ($pair->[0], $pair->[1]);
-    }
-    return @result;
-}
-
-
-
-use XML::Dumper;
- my $dump = new XML::Dumper;
-
-use XML::Simple;
-my $xs = new XML::Simple();
-
-my $enviar = "";
-while (my($key,$value) = each %tablaNodos) {
-    print $value;
-    print $value->archivos_todos();
-
-}
-print "$enviar\n";
-sub tabla{
-    while (my($key,$value) = each %tablaNodos) {
-    my $datos = Data::Dumper->Dump([$value], [qw /InfoNodo_value_evaled/ ]) ;
-
-    return {'tabla' => $enviar}
-    }
-}
- my $methods = {
-             'coordinador.tabla' => \&tabla,
-             };
-Frontier::Daemon->new(LocalPort => COORD_RPC_PORT, methods => $methods, use_objects => 1)
-        or die "No se pudo iniciar el servidor RPC: $!";
+ #my $methods = {
+             #'coordinador.tabla' => \&tabla,
+             #};
+#Frontier::Daemon->new(LocalPort => COORD_RPC_PORT, methods => $methods, use_objects => 1)
+        #or die "No se pudo iniciar el servidor RPC: $!";

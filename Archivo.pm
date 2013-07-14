@@ -9,8 +9,11 @@ use overload
                 my $this = shift;
                 my $imp = "";
                 $imp .= $this->nombre() . ',';
-                #my @algo = $this->option_pairs;
-                $imp .= $this->option_pairs;
+                for my $pair ($this->pares_version_cs()) {
+                    $imp .= $pair->[0] . ',';
+                    $imp .= $pair->[1] . ',';
+                }
+                $imp .= '#';
                 return $imp };
 
 has 'nombre'  => (

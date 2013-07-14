@@ -9,11 +9,17 @@ use overload
     q("") => sub {
                 my $this = shift;
                 my $imp = "";
-                $imp .= $this->nombre();
+                $imp .= $this->nombre() . ',';
                 $imp .= $this->pid() . ',';
-                $imp .= $this->estado() . ',';
-                #my @algo = $this->all_options;
-                $imp .= $this->archivos_todos;
+                $imp .= $this->estado() . '#';
+                my @aux;
+                if ($this->contar_archivos > 0) {
+                    @aux = $this->archivos_todos();
+                    $imp .= $_ foreach @aux;
+                } else {
+                    $imp .= '#';
+                }
+                $imp .= '&';
                 return $imp };
 
 has 'nombre'  => ( isa => 'Str', is => 'rw');
