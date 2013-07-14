@@ -6,6 +6,7 @@ use lib qw(./lib/lib/perl5/site_perl/5.12.4);
 use strict;
 use Net::SFTP::Foreign;
 use Digest::MD5;
+use constant K => 3; 
 
 sub commit {
     my $archivo = shift;
@@ -32,7 +33,6 @@ sub pull{
         &getFromRep($archivo,$version,$rep);
         $checkL = &checksum($archivo);
     }
-
     &arreglarRep($archivo,$version,@arreglar) if (@arreglar);
 }
 
@@ -89,6 +89,20 @@ sub validarChecksum{
     return($moda,$modaCheck[0],@arreglar);
 }
 
+sub notificarCommit{
+    my $archivo = shift;
+    my $version = shift;
+    my @reps = @_;
+    
+    print "Notificando commit al grupo multicast\n" if DEBUG;
+    my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
+    my $datos  = "2,";
+    $datos .= $archivo . ",";
+    $datos .= $version . ",";
+    $datos .= "@reps";
+    $socket->send($datos) || die "No se pudo notificar al grupo: $!";
+    print "Notificacion enviada al grupo multicast\n" if DEBUG;
+}
 
 # Rutina que envia un archivo a la replica
 # Parametros
@@ -98,21 +112,19 @@ sub send2rep{
     my $archivo = shift;
     my $version = shift;
     my @reps = @_;
-
+    my @pids;
     foreach(@reps){
         print "Enviando $archivo a $_";
         my $host = $_;
         my $sftp = Net::SFTP::Foreign->new(host=>$_, user=>'javier');
         $sftp->mkdir($raiz/$archivo);
         $sftp->put("/tmp/$archivo","$raiz/$archivo/$version");
-
-        #   NOTIFICAR A TODO EL MUNDO EL ENVIO DE ARCHIVOS
-        #   PARA QUE ACTUALICEN SU TABLA
-        #my $rep_url = "http://$_:" . PORT . '/RPC2';
-        #my $rep = Frontier::Client->new(url => $rep_url);
+        push(@pids,$pidRep{$_});
     }
-
-    ## Multicast a todos notificando los cambios
+    #   NOTIFICAR A TODO EL MUNDO EL ENVIO DE ARCHIVOS
+    #   PARA QUE ACTUALICEN SU TABLA
+    my checksum = &checksum($archivo);
+    &notificarCommit($archivo,$version,$checksum,@pids);
 }
 
 # Rutina que recibe un archivo de una replica
@@ -153,14 +165,16 @@ sub lowRep{
     my %cp;
     my @replicas;
     while (my($pid, $rep) = each %tablaNodos) {
-        #   ARREGLAR TIENE QUE SER UN ARREGLO
-        $cp{$rep->contar_archivos} = $rep->nombre;
+        push (@{$cp{$rep->contar_archivos}},$rep->nombre);
     }  
     my @cargas = (sort keys %cp);
-
-    #   FALTA DEFINIR LA CONSTANTE K
-    for (my $i = 0; $i < K, $i++){
-        push(@replicas, $cp{$cargas[$i]});
+    
+    my $krep = 0;
+    my $key = shift @cargas;
+    while ($krep < K){
+        $key = shift @cargas unless ($cp{$key});
+        push(@replicas, shift $cp{$key});
+        $krep++;
     }
     return @replicas;
 }
@@ -172,8 +186,7 @@ sub getVersion{
     while (my($pid, $rep) = each %tablaNodos) {
         my $arch = $rep->buscar_archivo($archivo); 
         if (defined($arch)){
-            #   MODIFICAR SE NECESITA SABER EL NUMERO DE VERSIONES
-            $version = $arch->contar_archivos();
+            $version = $arch->contar_versiones();
             last;
         }
         return $version;

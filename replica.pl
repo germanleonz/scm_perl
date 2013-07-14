@@ -34,6 +34,7 @@ use constant COORD_RPC_PORT => '8081';
 #   Variables globales de un servidor replica
 my $coord      :shared;
 my %tablaNodos :shared;
+my %pidRep     :shared;
 my $hostname = `hostname`;
 my $my_url   = gethostbyname($hostname);
 my $my_pid   = getppid;
@@ -153,6 +154,24 @@ sub escuchar {
             $pid = $tablaNodos{$hostname}->pid if (exists $tablaNodos{$hostname});
             &agregarServidor($hostname, $pid);
         }
+        if ($tipo_mensaje == 2){
+            print "Nuevo commit"
+            my $archivo = shift @datos;
+            my $version = shift @datos;
+            my $checksum = shift @datos;
+            my @pids = @datos;
+
+            foreach (@pids){
+                my $arch = $tablaNodos{$_}->buscar_archivo($archivo);
+                if (defined($arch)){
+                    $arch->agregar_version($version=>$checksum);    
+                }else{
+                   $arch = $tablaNodos{$_}->agregar_archivo('nombre' => $archivo);
+                   $arch->agregar_version($version=>$checksum);
+                }
+            }
+        }
+
     }
 }
 
@@ -261,6 +280,11 @@ sub tabla {
 #   Inicializa las funciones del coordinador
 sub iniciarCoordinador {
     print "Arrancando el RPC de coordinador ...\n" if DEBUG;
+    
+    # Hash replica -> pid
+    while (my($key,$value) = each %tablaNodos){
+        $pidRep{$value->nombre} = $key;
+    }
 
     #   Metodos expuestos por RPC por el coordinador
     my $methods = {
