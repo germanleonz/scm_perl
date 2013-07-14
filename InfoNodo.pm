@@ -43,8 +43,9 @@ has 'archivo' => (
     handles => {
         archivos_todos  => 'elements',
         agregar_archivo => 'push',
-        buscar_archivo  => 'get',
+        buscar_archivo_indice  => 'get',
         contar_archivos => 'count',
+        buscar_archivo_nombre => 'grep',
     });
 
 __PACKAGE__->meta->make_immutable;

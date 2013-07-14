@@ -9,7 +9,6 @@ use utf8;
 use strict;
 use threads;
 use threads::shared;
-require 'getFile.pm';
 
 use IO::Socket::Multicast;
 use IO::Socket::PortState qw(check_ports);
@@ -24,16 +23,16 @@ use InfoNodo;
 use Net::SFTP::Foreign;
 use Digest::MD5;
 
-use constant K => 1; 
+use constant K => 2; 
 use constant LOG            => 1;
-use constant DEBUG          => 1;
+use constant DEBUG          => 0;
 use constant MC_DESTINATION => '226.1.1.4:2000';
 use constant MC_GROUP       => '226.1.1.4';
 use constant MC_PORT        => '2000';
 use constant DNS_URL        => 'titan.ldc.usb.ve';
 use constant DNS_PORT       => '8083';
 use constant COORD_RPC_PORT => '8081';
-use constant REP_RPC_PORT => '8082';
+use constant REP_RPC_PORT   => '8082';
 
 
 #   Variables globales de un servidor replica
@@ -168,7 +167,7 @@ sub escuchar {
             my @pids = @datos;
 
             foreach (@pids){
-                my $arch = $tablaNodos{$_}->buscar_archivo($archivo);
+                my $arch = $tablaNodos{$_}->buscar_archivo_nombre(sub {/^$archivo/});
                 if (defined($arch)){
                     $arch->agregar_version($version=>$checksum);    
                 }else{
@@ -176,6 +175,7 @@ sub escuchar {
                    $arch->agregar_version($version=>$checksum);
                 }
             }
+            print Dumper (\%tablaNodos); 
         }
 
     }
@@ -402,6 +402,7 @@ sub commit {
     my $archivo = shift;
     my $checksum = &checksum($archivo);
     my ($version, $checksumL,@replicas) = &getRep($archivo);
+    print Dumper @replicas;
     
     if ($checksum ne $checksumL){
         &send2rep($archivo,$version+1,@replicas);
@@ -468,7 +469,7 @@ sub validarChecksum{
     my %checksums;
     shift @replicas;
     foreach(@replicas){
-        my $rep_url = "http://$_:" . REP_PRC_PORT . '/RPC2';
+        my $rep_url = "http://$_:" . REP_RPC_PORT . '/RPC2';
         my $rep = Frontier::Client->new(url => $rep_url);
         my $result = $rep->call('rep.checksum',$archivo,$version);
         push (@{$checksums{$result}},$_);
@@ -513,10 +514,10 @@ sub send2rep{
     my @reps = @_;
     my @pids;
     foreach(@reps){
-        print "Enviando $archivo a $_";
+        print "Enviando $archivo a $_\n";
         my $host = $_;
-        my $sftp = Net::SFTP::Foreign->new(host=>$_, user=>'javier');
-        $sftp->mkdir($raiz/$archivo);
+        my $sftp = Net::SFTP::Foreign->new(host=>$host, user=>'javier');
+        $sftp->mkdir("$raiz/$archivo");
         $sftp->put("/tmp/$archivo","$raiz/$archivo/$version");
         push(@pids,$pidRep{$_});
     }
@@ -545,19 +546,25 @@ sub getFromRep{
 # disponible 
 sub getRep{
     my $archivo = shift;
+    print "Buscando archivo $archivo\n";
     my $version = 0;
     my @replicas;
     my $checksum;
     while (my($pid, $rep) = each %tablaNodos) {
-        my $arch = $rep->get($archivo); 
+        my $arch = $rep->buscar_archivo_indice(0); 
         if (defined($arch)){
-            push(@replicas,$rep->nombre);
+            print "Rep: " .Dumper $rep->nombre() . "\n";
+            push(@replicas,$rep->nombre());
+            print $arch->nombre . "\n";
             $version = $arch->contar_versiones;
             $checksum = $arch->get_version($version);
-        }
-        @replicas = &lowRep if (!@replicas);
-        return ($version,$checksum,@replicas);
-    }
+          }
+
+      }
+      print "replcas @replicas\n";
+      @replicas = &lowRep unless (@replicas);
+      return ($version,$checksum,@replicas);
+
 }
 
 # Rutina que busca las k replicas con menos carga
@@ -566,7 +573,9 @@ sub lowRep{
     my %cp;
     my @replicas;
     while (my($pid, $rep) = each %tablaNodos) {
-        push (@{$cp{$rep->contar_archivos}},$rep->nombre);
+        print "Entre\n";
+        print $rep->nombre() . "\n";
+        push (@{$cp{$rep->contar_archivos}},$rep->nombre());
     }  
     my @cargas = (sort keys %cp);
     
@@ -585,7 +594,7 @@ sub getVersion{
     my $archivo = shift;
     my $version;
     while (my($pid, $rep) = each %tablaNodos) {
-        my $arch = $rep->buscar_archivo($archivo); 
+        my $arch = $rep->buscar_archivo_nombre(sub {/^$archivo/}); 
         if (defined($arch)){
             $version = $arch->contar_versiones();
             last;
