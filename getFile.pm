@@ -1,12 +1,15 @@
 #!/usr/bin/perl
 
+package getFile;
 use lib qw(.);
 use lib qw(./lib/perl5/site_perl/5.12.4/);
 use lib qw(./lib/lib/perl5/site_perl/5.12.4);
 use strict;
 use Net::SFTP::Foreign;
 use Digest::MD5;
-use constant K => 3; 
+use constant K => 1; 
+my $raiz = '/tmp';
+
 
 sub commit {
     my $archivo = shift;
@@ -14,7 +17,7 @@ sub commit {
     my ($version, $checksumL,@replicas) = &getRep($archivo);
     
     if ($checksum ne $checksumL){
-        &send2rep($archivo,$version+1,@replicas)
+        &send2rep($archivo,$version+1,@replicas);
         return 0;
     }else{
         return 1;
@@ -45,7 +48,7 @@ sub pull{
 
 sub arreglarRep{
     my $archivo = shift;
-    ey $version = shift;
+    my $version = shift;
     my @replicas = @_;
 
     &send2rep($archivo,$version,@replicas);
@@ -76,7 +79,7 @@ sub validarChecksum{
     my %checksums;
     shift @replicas;
     foreach(@replicas){
-        my $rep_url = "http://$_:" . PORT . '/RPC2';
+        my $rep_url = "http://$_:" . REP_PRC_PORT . '/RPC2';
         my $rep = Frontier::Client->new(url => $rep_url);
         my $result = $rep->call('rep.checksum',$archivo,$version);
         push (@{$checksums{$result}},$_);
@@ -130,7 +133,7 @@ sub send2rep{
     }
     #   NOTIFICAR A TODO EL MUNDO EL ENVIO DE ARCHIVOS
     #   PARA QUE ACTUALICEN SU TABLA
-    my checksum = &checksum($archivo);
+    my $checksum = &checksum($archivo);
     &notificarCommit($archivo,$version,$checksum,@pids);
 }
 
@@ -182,7 +185,7 @@ sub lowRep{
     my $key = shift @cargas;
     while ($krep < K){
         $key = shift @cargas unless ($cp{$key});
-        push(@replicas, shift $cp{$key});
+        push(@replicas, shift @{$cp{$key}});
         $krep++;
     }
     return @replicas;

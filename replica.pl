@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 #   Nodo del sistema distribuido de control de versiones
 
+package replica;
 use lib qw(.);
 use lib qw(./lib/perl5/site_perl/5.12.4/);
 use lib qw(./lib/lib/perl5/site_perl/5.12.4);
@@ -9,6 +10,7 @@ use utf8;
 use strict;
 use threads;
 use threads::shared;
+require 'getFile.pm';
 
 use IO::Socket::Multicast;
 use IO::Socket::PortState qw(check_ports);
@@ -29,6 +31,7 @@ use constant MC_PORT        => '2000';
 use constant DNS_URL        => 'titan.ldc.usb.ve';
 use constant DNS_PORT       => '8083';
 use constant COORD_RPC_PORT => '8081';
+use constant REP_RPC_PORT => '8082';
 
 
 #   Variables globales de un servidor replica
@@ -155,7 +158,7 @@ sub escuchar {
             &agregarServidor($hostname, $pid);
         }
         if ($tipo_mensaje == 2){
-            print "Nuevo commit"
+            print "Nuevo commit";
             my $archivo = shift @datos;
             my $version = shift @datos;
             my $checksum = shift @datos;
@@ -292,7 +295,7 @@ sub clienteCommit{
 
 sub clientePull{
     my $archivo = shift;
-    my $archivo = shift;
+    my $version = shift;
     &pull($archivo,$version);
     return {'clientePull' => 1};
 }
