@@ -175,7 +175,7 @@ sub escuchar {
 
                   my $nombre_archivo = $archivo;
                   print "Agregnado nuevo archivo $nombre_archivo\n";
-                  $archivo = Archivo->new('nombre' => $nombre_archivo);
+                  $archivo = shared_copy(Archivo->new('nombre' => $nombre_archivo));
                   $archivo->agregar_version($version => $checksum);
                   print Dumper($archivo) . "\n";
                   #Arreglar
