@@ -160,19 +160,28 @@ sub escuchar {
             &agregarServidor($hostname, $pid);
         }
         if ($tipo_mensaje == 2){
-            print "Nuevo commit";
             my $archivo = shift @datos;
             my $version = shift @datos;
             my $checksum = shift @datos;
-            my @pids = @datos;
+            print "Nuevo commit $archivo version: $version en las replicas @datos\n";
 
-            foreach (@pids){
-                my $arch = $tablaNodos{$_}->buscar_archivo_nombre(sub {/^$archivo/});
+            foreach (@datos){
+                my $arch;
+                my $arch = $tablaNodos{$_}->buscar_archivo($archivo);
                 if (defined($arch)){
+                  print "Agregnado nueva version del archivo archivo $archivo\n";
                     $arch->agregar_version($version=>$checksum);    
                 }else{
-                   $arch = $tablaNodos{$_}->agregar_archivo('nombre' => $archivo);
-                   $arch->agregar_version($version=>$checksum);
+
+                  my $nombre_archivo = $archivo;
+                  print "Agregnado nuevo archivo $nombre_archivo\n";
+                  $archivo = Archivo->new('nombre' => $nombre_archivo);
+                  $archivo->agregar_version($version => $checksum);
+                  print Dumper($archivo) . "\n";
+                  #Arreglar
+                  print "Imprimiendo tabla #####\n";
+                  print Dumper($tablaNodos{$_}) . "\n";
+                  $tablaNodos{$_}->agregar_archivo($nombre_archivo => $archivo);
                 }
             }
             print Dumper (\%tablaNodos); 
@@ -184,6 +193,7 @@ sub escuchar {
 #   Esta rutina se encarga de agregar un nuevo servidor a la tabla 
 sub agregarServidor {
     my ($servidor, $pid) = @_;
+    $pidRep{$servidor} = $pid;
 
     print "Agregando:$servidor:$pid\n" if DEBUG;
 
@@ -313,6 +323,7 @@ sub iniciarCoordinador {
     
     # Hash replica -> pid
     while (my($key,$value) = each %tablaNodos){
+        my $host = $value->nombre();
         $pidRep{$value->nombre} = $key;
     }
 
@@ -389,7 +400,7 @@ sub fromStr2Tabla {
                     $version => $checksum,
                 );
             }
-            $nodo->agregar_archivo($archivo);
+            $nodo->agregar_archivo($nombre_archivo => $archivo);
         }
         $result{$pid} = $nodo;
     }
@@ -402,8 +413,7 @@ sub commit {
     my $archivo = shift;
     my $checksum = &checksum($archivo);
     my ($version, $checksumL,@replicas) = &getRep($archivo);
-    print Dumper @replicas;
-    
+    print "Realizando commit del $archivo version: $version Replicas: @replicas\n"; 
     if ($checksum ne $checksumL){
         &send2rep($archivo,$version+1,@replicas);
         return 0;
@@ -425,6 +435,7 @@ sub pull{
     if (defined($version)){
         print "error\n" unless (&versionOK($archivo,$version));
     }else{
+
         $version = &getVersion($archivo);
     }
 
@@ -492,6 +503,7 @@ sub validarChecksum{
 sub notificarCommit{
     my $archivo = shift;
     my $version = shift;
+    my $checksum = shift;
     my @reps = @_;
     
     print "Notificando commit al grupo multicast\n" if DEBUG;
@@ -499,7 +511,8 @@ sub notificarCommit{
     my $datos  = "2,";
     $datos .= $archivo . ",";
     $datos .= $version . ",";
-    $datos .= "@reps";
+    $datos .= $checksum . ",";
+    $datos .= "$_," foreach(@reps);
     $socket->send($datos) || die "No se pudo notificar al grupo: $!";
     print "Notificacion enviada al grupo multicast\n" if DEBUG;
 }
@@ -524,6 +537,7 @@ sub send2rep{
     #   NOTIFICAR A TODO EL MUNDO EL ENVIO DE ARCHIVOS
     #   PARA QUE ACTUALICEN SU TABLA
     my $checksum = &checksum($archivo);
+    print "Notificando commit a @pids\n";
     &notificarCommit($archivo,$version,$checksum,@pids);
 }
 
@@ -551,9 +565,12 @@ sub getRep{
     my @replicas;
     my $checksum;
     while (my($pid, $rep) = each %tablaNodos) {
-        my $arch = $rep->buscar_archivo_indice(0); 
+        my $arch;
+        my @prueba = $rep->archivos_todos();
+        print "Imprimiendo todos los archivos @prueba\n";
+        $arch = $rep->buscar_archivo($archivo);
         if (defined($arch)){
-            print "Rep: " .Dumper $rep->nombre() . "\n";
+            print "hola\n";
             push(@replicas,$rep->nombre());
             print $arch->nombre . "\n";
             $version = $arch->contar_versiones;
@@ -594,8 +611,12 @@ sub getVersion{
     my $archivo = shift;
     my $version;
     while (my($pid, $rep) = each %tablaNodos) {
-        my $arch = $rep->buscar_archivo_nombre(sub {/^$archivo/}); 
+        my $arch;
+        my @prueba = $rep->archivos_todos();
+        print "Imprimiendo todos los archivos @prueba\n";
+        $arch = $rep->buscar_archivo($archivo); 
         if (defined($arch)){
+            print "Buscando la version del archivo $archivo\n";
             $version = $arch->contar_versiones();
             last;
         }
@@ -613,6 +634,7 @@ $coord = &getCoord();
 
 #   Enviar a todos el hostname y pid. 
 &notificar() unless $coord eq $hostname;
+$pidRep{$hostname} = $my_pid if $coord eq $hostname;
 $coord eq $hostname ? &agregarServidor($hostname, $my_pid) : &getTabla();
 
 print "Iniciando el hilo de escucha por RPC como servidor replica.\n" if DEBUG;

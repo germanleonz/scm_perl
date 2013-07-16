@@ -1,4 +1,6 @@
 use Getopt::Std;
+use Frontier::Client;
+use Net::SFTP::Foreign;
 use constant LOG            => 1;
 use constant DEBUG          => 1;
 use constant MC_DESTINATION => '226.1.1.4:2000';
@@ -25,12 +27,13 @@ sub getCoord {
 
 sub commit {
     my $archivo = shift;
-    my $sftp = Net::SFTP::Foreign->new(host=>$_, user=>$user);
+    my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$user);
     $sftp->put("$archivo","/tmp/$archivo");
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
-    my $result = $server->call('coordinador.clienteCommit');
-    my $tablaStr = $result->{'clienteCommit'};
+    my $result = $server->call('coordinador.clienteCommit',$archivo);
+    my $mensaje = $result->{'clienteCommit'};
+    print $mensaje . "\n";
 }
 
 sub uso{
@@ -50,7 +53,7 @@ EOF
 
 # Main
 
-my $opt_string = 'hf:';
+my $opt_string = 'hf:u:';
 
 getopts( "$opt_string", \%opt ) or &uso();
 &uso() if $opt{h};
