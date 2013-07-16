@@ -37,7 +37,7 @@ use constant REP_RPC_PORT   => '8082';
 
 #   Variables globales de un servidor replica
 my $coord      :shared;
-my $raiz     = '/tmp';
+my $raiz     = '/tmp/scm/';
 my %tablaNodos :shared;
 my %pidRep     :shared;
 my $hostname = `hostname`;
@@ -163,28 +163,20 @@ sub escuchar {
             my $archivo = shift @datos;
             my $version = shift @datos;
             my $checksum = shift @datos;
-            print "Nuevo commit $archivo version: $version en las replicas @datos\n";
-
+            print "Nuevo commit $archivo version: $version en las replicas @datos\n" if DEBUG;
+            my $nombre_archivo = $archivo;
             foreach (@datos){
                 my $arch;
                 my $arch = $tablaNodos{$_}->buscar_archivo($archivo);
                 if (defined($arch)){
-                  print "Agregnado nueva version del archivo archivo $archivo\n";
                     $arch->agregar_version($version=>$checksum);    
                 }else{
-
-                  my $nombre_archivo = $archivo;
-                  print "Agregnado nuevo archivo $nombre_archivo\n";
-                  $archivo = shared_copy(Archivo->new('nombre' => $nombre_archivo));
+                  $archivo = shared_clone(Archivo->new('nombre' => $nombre_archivo));
                   $archivo->agregar_version($version => $checksum);
-                  print Dumper($archivo) . "\n";
-                  #Arreglar
-                  print "Imprimiendo tabla #####\n";
-                  print Dumper($tablaNodos{$_}) . "\n";
                   $tablaNodos{$_}->agregar_archivo($nombre_archivo => $archivo);
                 }
             }
-            print Dumper (\%tablaNodos); 
+            #print Dumper (\%tablaNodos); 
         }
 
     }
