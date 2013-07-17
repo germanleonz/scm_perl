@@ -1,7 +1,3 @@
-#!/usr/bin/perl
-#   Programa cliente
-
-use strict;
 use Getopt::Std;
 use Frontier::Client;
 use Net::SFTP::Foreign;
@@ -16,25 +12,11 @@ use constant COORD_RPC_PORT => '8081';
 
 my $coord;
 my $archivo;
-my $usuario;
+my $usuarios;
 my $proyecto;
-my %opt;
 
-# Main
-my $opt_string = 'hf:u:p:';
-
-getopts("$opt_string", \%opt) or &uso();
-&uso() if $opt{h};
-$usuario = $opt{u};
-$archivo = $opt{f};
-$proyecto = $opt{p};
-
-$coord = &getCoord;
-&commit($archivo);
-
-#
 sub getCoord {
-    print "Contactando...\n" if DEBUG;
+    print "Contactando al DNS para saber el estado del coordinador...\n" if DEBUG;
     my $server_url = 'http://' . DNS_URL . ':' . DNS_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url, use_objects => 0);
     my $result = $server->call('dns.coordinador');
@@ -44,32 +26,47 @@ sub getCoord {
     return $aux;
 }
 
-#   Solicita al sistema la realizacion de un commit
-sub commit {
+sub pull {
     my $archivo = shift;
-    my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
-    $sftp->put("$archivo","/tmp/$archivo");
-
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
-    my $retult = $server->call('coordinador.clienteCommit',$usuario,$proyecto,$archivo);
-    my $mensaje = $result->{'clienteCommit'};
+    my $result = $server->call('coordinador.clientePull',$usuario,$proyecto,$archivo);
+    my $mensaje = $result->{'clientePull'};
+    my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
+    $sftp->get("$archivo","/tmp/$archivo") if $sftp;
     print $mensaje . "\n";
 }
 
-#
-sub uso {
+sub uso{
     print STDERR << "EOF";
 
     Commit:
-    uso: $0 [-h] | [-u usuario] [-p proyecto] -f archivo
+    uso: $0 [-hu] [-f archivo]
 
     -h          : Ayuda
     -u          : Usuario
     -p          : Proyecto
     -f archivo  : Archivo a realizar commit
 
-    ejemplo: $0 -f archivo.txt
+    ejemplo: $0 -f arhcivo.txt
 EOF
         exit;
-}
+    }
+
+# Main
+
+my $opt_string = 'hf:u:p:';
+
+getopts( "$opt_string", \%opt ) or &uso();
+&uso() if $opt{h};
+$usuario = $opt{u};
+$archivo = $opt{f};
+$proyecto = $opt{p};
+
+$coord = &getCoord;
+&commit($archivo);
+
+
+
+
+  
