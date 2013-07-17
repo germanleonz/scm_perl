@@ -304,6 +304,8 @@ sub clienteCommit{
     my $check = &commit($usuario, $proyecto, $archivo);
     if ($check){
         return {'clienteCommit' =>"$archivo Up to date\n"};
+    } elsif ($check == -1){
+        return {'clienteCommit' => "Imposible conectar con servidor, intente mas tarde\n"}
     }else{     
         return {'clienteCommit' => "Commit realizado\n"};
     }
@@ -417,8 +419,7 @@ sub commit {
     my ($version, $checksumL, @replicas) = &getRep($usuario,$proyecto,$archivo);
     print "Realizando commit del $archivo version: $version usuario: $usuario proyecto: $proyecto Replicas: @replicas\n" if DEBUG; 
     if ($checksum ne $checksumL) {
-        &send2rep($usuario,$proyecto,$archivo,$version+1,@replicas);
-        return 0;
+        return &send2rep($usuario,$proyecto,$archivo,$version+1,@replicas);
     }else{
         return 1;
     }
@@ -529,13 +530,27 @@ sub send2rep{
     my $archivo = shift;
     my $version = shift;
     my @reps = @_;
+    my $path; 
     my @pids;
     foreach(@reps) {
         print "Enviando $archivo a $_\n";
         my $host = $_;
         my $sftp = Net::SFTP::Foreign->new(host=>$host, user=>'javier');
         $sftp->mkpath("$raiz/$usuario/$proyecto/$archivo");
-        $sftp->put("/tmp/$archivo","$raiz/$usuario/$proyecto/$archivo/$version");
+        #   SE INTENTA ALMACENAR EL ARCHIVO EN LA REPLICA 5 VECES
+        my $intentos = 5;
+        do {
+            $sftp->put("/tmp/$archivo","$raiz/$usuario/$proyecto/$archivo/$version");
+            $intentos--;
+        } while ($sftp->error and $intentos > 0);
+
+        #   SI SE INTENTO 5 VECES, SE BORRA EL ARCHIVO DE LAS REPLICAS Y SE RETORNA ERROR 
+        if ($intentos == 0) {
+            $path = "$raiz/$usuario/$proyecto/$archivo/$version";
+            &rmFile($path, @reps);
+            return -1;
+        }
+
         push(@pids,$pidRep{$_});
     }
     #   NOTIFICAR A TODO EL MUNDO EL ENVIO DE ARCHIVOS
@@ -543,6 +558,23 @@ sub send2rep{
     my $checksum = &checksum($archivo);
     print "Notificando commit a @pids\n" if DEBUG;
     &notificarCommit($usuario,$proyecto,$archivo,$version,$checksum,@pids);
+    return 0;
+}
+
+# Rutina que elimina un archivo de un conjunto de replicas
+# Parametros
+# $reps: replicas donde se eliminara el archivo
+# $path: path del archivo a eliminar
+sub rmFile{
+    my $path = shift;
+    my @reps = @_;
+
+    foreach(@reps) {
+        print "Eliminando archivo $path de $_\n";
+        my $host = $_;
+        my $sftp = Net::SFTP::Foreign->new(host=>$host, user=>'javier');
+        $sftp->remove($path);
+    }
 }
 
 # Rutina que recibe un archivo de una replica
