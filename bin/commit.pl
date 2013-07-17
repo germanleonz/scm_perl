@@ -52,7 +52,7 @@ sub commit {
 
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
-    my $retult = $server->call('coordinador.clienteCommit',$usuario,$proyecto,$archivo);
+    my $result = $server->call('coordinador.clienteCommit',$usuario,$proyecto,$archivo);
     my $mensaje = $result->{'clienteCommit'};
     print $mensaje . "\n";
 }

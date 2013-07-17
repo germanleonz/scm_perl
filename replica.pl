@@ -188,12 +188,7 @@ sub escuchar {
                   $tablaNodos{$_}->agregar_archivo($nombre_archivo => $archivo);
                 }
             }
-            #print Dumper (\%tablaNodos); 
         }
-        #if ($tipo_mensaje == 9) {
-            #   Mensaje de monitoreo recibido por el servidor
-            
-        #}
         if ($tipo_mensaje == 10) {
             #   Mensaje de notificacion de un servidor muerto
             my $servidor_muerto = shift @datos;
@@ -202,6 +197,13 @@ sub escuchar {
             my $nodo_muerto = $tablaNodos{$pids_muerto[0]};
             print Dumper $nodo_muerto;
             $nodo_muerto->estado(0);
+
+            my $nuevo :shared = shared_clone(InfoNodo->new);
+            bless ($nuevo, 'InfoNodo');
+            $nuevo->nombre($servidor_muerto);
+            $nuevo->pid($pids_muerto[0]);
+            $nuevo->estado(0);
+            $tablaNodos{$pids_muerto[0]} = $nuevo;
         }
     }
 }
@@ -217,13 +219,6 @@ sub agregarServidor {
     my $nodo = $tablaNodos{"$pid"}; 
     if (defined $nodo) {
         #   El nodo revivio
-        if ($nodo->estado == 0) {
-            my $nuevo :shared = shared_clone(InfoNodo->new);
-            bless ($nuevo, 'InfoNodo');
-            $nuevo->nombre($servidor);
-            $nuevo->pid($nodo->pid);
-            $tablaNodos{$nodo->pid} = $nuevo;
-        }
         $tablaNodos{$pid}->reset_contador();
     } else {
         my $nuevo :shared = shared_clone(InfoNodo->new);
@@ -274,7 +269,7 @@ sub chequearReplicas {
                 if ($tablaNodos{$replica->pid}->estado == 0) {
                     print "El servidor $nombre_replica murio.\n" if LOG;
                     &notificarServidorMuerto($nombre_replica);
-                    &replicarServidor();
+                    &replicarServidor($nombre_replica);
                 }
             } else {
                 print "Todo bien con $nombre_replica.\n" if DEBUG;
@@ -382,6 +377,7 @@ sub notificarServidorMuerto {
 #   nodos del sistema. Debe garantizar balanceo de cargas y tolerancia suficiente
 sub replicarServidor {
     my $servidor = shift;
+    print "Replicando archivos de $servidor en los demas nodos del sistema.\n" if DEBUG;
     1;
 }
 
@@ -436,10 +432,10 @@ sub fromStr2Tabla {
 #
 #
 sub commit {
-    my $usuario = shift;
+    my $usuario  = shift;
     my $proyecto = shift;
-    my $archivo = shift;
-    my $ver = shift;
+    my $archivo  = shift;
+    my $ver      = shift;
     my $checksum = &checksum($archivo);
     my ($version, $checksumL, @replicas) = &getRep($usuario,$proyecto,$archivo);
     $version = $ver if defined($ver);
@@ -577,7 +573,7 @@ sub notificarCommit{
 # Parametros
 # @servidores: lista de los servidores a los que se enviara el archivo
 # $archivo: achivo que se enviara
-sub send2rep{
+sub send2rep {
     my $usuario = shift;
     my $proyecto = shift;
     my $archivo = shift;
@@ -588,11 +584,13 @@ sub send2rep{
     foreach(@reps) {
         print "Enviando $archivo a $_\n";
         my $host = $_;
-        my $sftp = Net::SFTP::Foreign->new(host=>$host, user=>'javier');
+        my $sftp = Net::SFTP::Foreign->new(host=>$host, user=>'08-10611');
         $sftp->mkpath("$raiz/$usuario/$proyecto/$archivo");
         #   SE INTENTA ALMACENAR EL ARCHIVO EN LA REPLICA 5 VECES
         my $intentos = 5;
         do {
+            print "Intent $intentos:";
+            print Dumper $sftp->error;
             $sftp->put("/tmp/$archivo","$raiz/$usuario/$proyecto/$archivo/$version");
             $intentos--;
         } while ($sftp->error and $intentos > 0);
@@ -625,7 +623,7 @@ sub rmFile{
     foreach(@reps) {
         print "Eliminando archivo $path de $_\n";
         my $host = $_;
-        my $sftp = Net::SFTP::Foreign->new(host=>$host, user=>'javier');
+        my $sftp = Net::SFTP::Foreign->new(host=>$host, user=>'08-10611');
         $sftp->remove($path);
     }
 }
@@ -642,7 +640,7 @@ sub getFromRep {
     my $rep = shift;
     my $version = shift;
     $version = &getVersion($usuario,$proyecto,$archivo) unless defined($version);
-    my $sftp = Net::SFTP::Foreign->new(host=>$rep, user=>'javier');
+    my $sftp = Net::SFTP::Foreign->new(host=>$rep, user=>'08-10611');
     $sftp->get("$raiz/$usuario/$proyecto/$archivo/$version","/tmp/$archivo");
 
 }
