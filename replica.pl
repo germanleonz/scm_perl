@@ -451,16 +451,6 @@ sub pull{
     &arreglarRep($archivo,$version,@arreglar) if (@arreglar);
 }
 
-#
-    my $usuario = shift;
-    my $proyecto = shift;
-    my $archivo = shift;
-    my $version = shift;
-    my @replicas = @_;
-
-    &send2rep($usuario,$proyecto,$archivo,$version,@replicas);
-
-}
 
 # Rutina que calcula el checksum de un archivo
 sub checksum{
