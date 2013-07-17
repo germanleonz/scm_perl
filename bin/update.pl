@@ -1,6 +1,7 @@
 use Getopt::Std;
 use Frontier::Client;
 use Net::SFTP::Foreign;
+use Data::Dumper;
 use constant LOG            => 1;
 use constant DEBUG          => 1;
 use constant MC_DESTINATION => '226.1.1.4:2000';
@@ -12,7 +13,7 @@ use constant COORD_RPC_PORT => '8081';
 
 my $coord;
 my $archivo;
-my $usuarios;
+my $usuario;
 my $proyecto;
 
 sub getCoord {
@@ -27,16 +28,16 @@ sub getCoord {
 }
 
 sub pull {
-    print "Realizando pull\n";
     my $archivo = shift;
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
     my $result = $server->call('coordinador.clientePull',$usuario,$proyecto,$archivo);
     my $mensaje = $result->{'clientePull'};
     my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
-    $sftp->get("$archivo","/tmp/$archivo") if $sftp;
-    print $mensaje . "\n";
-    print "listo\n";
+
+    print "Recibiendo archivo $archivo $usuario $coord \n" if DEBUG;
+    print Dumper $sftp;
+    $sftp->get("/tmp/$archivo","./$archivo") unless $sftp->error;
 }
 
 sub uso{
