@@ -623,7 +623,7 @@ sub getVersion{
 
 #   Consultar al dns quien es el coordinador
 $coord = &getCoord();
-
+mkdir $raiz;
 #   Enviar a todos el hostname y pid. 
 &notificar() unless $coord eq $hostname;
 $pidRep{$hostname} = $my_pid if $coord eq $hostname;
