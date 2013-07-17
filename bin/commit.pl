@@ -32,7 +32,7 @@ sub commit {
     $sftp->put("$archivo","/tmp/$archivo");
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
-    my $result = $server->call('coordinador.clienteCommit',$usuario,$proyecto,$archivo);
+    my $retult = $server->call('coordinador.clienteCommit',$usuario,$proyecto,$archivo);
     my $mensaje = $result->{'clienteCommit'};
     print $mensaje . "\n";
 }
