@@ -96,13 +96,3 @@ sub fromStr2Tabla {
     }
     %result;
 }
-
-#sub tabla {
-    #return {'tabla' => %tablaNodos}
-#}
-
- #my $methods = {
-             #'coordinador.tabla' => \&tabla,
-             #};
-#Frontier::Daemon->new(LocalPort => COORD_RPC_PORT, methods => $methods, use_objects => 1)
-        #or die "No se pudo iniciar el servidor RPC: $!";

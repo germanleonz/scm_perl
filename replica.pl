@@ -2,6 +2,7 @@
 #   Nodo del sistema distribuido de control de versiones
 
 package replica;
+
 use lib qw(.);
 use lib qw(./lib/perl5/site_perl/5.12.4/);
 use lib qw(./lib/lib/perl5/site_perl/5.12.4);
@@ -10,20 +11,20 @@ use strict;
 use threads;
 use threads::shared;
 
-use IO::Socket::Multicast;
-use IO::Socket::PortState qw(check_ports);
+use Data::Dumper;
+use Digest::MD5;
 use Frontier::Client;
 use Frontier::Daemon;
-use RPC::XML;
+use IO::Socket::Multicast;
+use IO::Socket::PortState qw(check_ports);
 use Net::Ping;
-use Data::Dumper;
+use Net::SFTP::Foreign;
+use RPC::XML;
 
 use Archivo;
 use InfoNodo;
-use Net::SFTP::Foreign;
-use Digest::MD5;
 
-use constant K => 2; 
+use constant K              => 2; 
 use constant LOG            => 1;
 use constant DEBUG          => 0;
 use constant MC_DESTINATION => '226.1.1.4:2000';
@@ -37,10 +38,10 @@ use constant REP_RPC_PORT   => '8082';
 
 #   Variables globales de un servidor replica
 my $coord      :shared;
-my $raiz     = '/tmp/scm/';
 my %tablaNodos :shared;
 my %pidRep     :shared;
 my $hostname = `hostname`;
+my $raiz     = '/tmp/scm/';
 my $my_url   = gethostbyname($hostname);
 my $my_pid   = getppid;
 chomp($my_pid);
@@ -62,6 +63,7 @@ sub getCoord {
     return $aux;
 }
 
+#
 sub setCoord {
     print "Cambiando de coordinador...\n" if DEBUG;
     my $coordViejo = $coord;
@@ -120,8 +122,8 @@ sub chequearCoord {
     return 1;
 }
 
-# Esta rutina notifica a todos los servidores la incorporacion de este servidor
-# replica enviando con multicast su hostname y pid
+#   Esta rutina notifica a todos los servidores la incorporacion de
+#   este servidor replica enviando con multicast su hostname y pid
 sub notificar {
     print "Notificando mi informacion al grupo multicast\n" if DEBUG;
     my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
@@ -132,8 +134,8 @@ sub notificar {
     print "Notificacion enviada al grupo multicast\n" if DEBUG;
 }
 
-# Esta rutina escucha multicast y dependiendo del codigo que reciba ejecuta la
-# rutina correspondiente
+#   Esta rutina escucha multicast y dependiendo del codigo que reciba
+#   ejecuta la rutina correspondiente
 sub escuchar {
     print "Esuchando futuras acciones como servidor replica...\n" if DEBUG;
 
@@ -178,6 +180,9 @@ sub escuchar {
             }
             #print Dumper (\%tablaNodos); 
         }
+        if ($tipo_mensaje == 10) {
+            #   Mensaje de notificacion de un servidor muerto
+        }
 
     }
 }
@@ -217,7 +222,7 @@ sub crearRaiz{
 # Rutina que borra todos los archivos almacenados en la replica
 sub wipe {
     system("rm -r $raiz/*i");
-    &crearRaiz;
+    &crearRaiz();
 }
 
 #   Metodo que monitorea el estado de los servidores replica del sistema
@@ -302,6 +307,7 @@ sub clienteCommit{
     }
 }
 
+#
 sub clientePull{
     my $archivo = shift;
     my $version = shift;
@@ -337,7 +343,7 @@ sub notificarServidorMuerto {
     my $servidor = shift;
     print "Notificando la caida del servidor $servidor.\n" if DEBUG;
     my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
-    my $datos  = "2,";  #   2 es el codigo para indicar que un servidor murio
+    my $datos  = "10,";  #   10 es el codigo para indicar que un servidor murio
     $datos .= $hostname;
     $socket->send($datos) || die "No se pudo notificar al grupo: $!";
     print "Notificacion enviada al grupo multicast\n" if DEBUG;
@@ -404,9 +410,9 @@ sub fromStr2Tabla {
 sub commit {
     my $archivo = shift;
     my $checksum = &checksum($archivo);
-    my ($version, $checksumL,@replicas) = &getRep($archivo);
+    my ($version, $checksumL, @replicas) = &getRep($archivo);
     print "Realizando commit del $archivo version: $version Replicas: @replicas\n"; 
-    if ($checksum ne $checksumL){
+    if ($checksum ne $checksumL) {
         &send2rep($archivo,$version+1,@replicas);
         return 0;
     }else{
@@ -424,7 +430,7 @@ sub pull{
     my @arreglar;
     my $rep;
 
-    if (defined($version)){
+    if (defined($version)) {
         print "error\n" unless (&versionOK($archivo,$version));
     }else{
 
@@ -432,13 +438,14 @@ sub pull{
     }
 
     ($checkR,$rep,@arreglar) = &validarChecksum($archivo,$version);
-    while ($checkR ne $checkL){
+    while ($checkR ne $checkL) {
         &getFromRep($archivo,$version,$rep);
         $checkL = &checksum($archivo);
     }
     &arreglarRep($archivo,$version,@arreglar) if (@arreglar);
 }
 
+#
 sub arreglarRep{
     my $archivo = shift;
     my $version = shift;
@@ -447,12 +454,13 @@ sub arreglarRep{
     &send2rep($archivo,$version,@replicas);
 
 }
+
 # Rutina que calcula el checksum de un archivo
 sub checksum{
     my $archivo = shift;
     my $checksum;
-    eval{
-        open(FILE, "/tmp/$archivo") or die "Can't find file $archivo\n";
+    eval {
+        open(FILE, "/tmp/$archivo") or die "No se pudo encontrar el archivo: $archivo\n";
         my $ctx = Digest::MD5->new;
         $ctx->addfile(*FILE);
         $checksum = $ctx->hexdigest;
@@ -465,7 +473,7 @@ sub checksum{
 # Retorna el checksum valido y la replica a solicitar
 # Si existe un error en alguno de los checksum reenvia el archivo a 
 # la replica con el checksum incorrecto
-sub validarChecksum{
+sub validarChecksum {
     my $archivo = shift;
     my $version = shift;
     my ($v,$c,@replicas) =  &getRep($archivo);
@@ -492,6 +500,7 @@ sub validarChecksum{
     return($moda,$modaCheck[0],@arreglar);
 }
 
+#
 sub notificarCommit{
     my $archivo = shift;
     my $version = shift;
@@ -518,7 +527,7 @@ sub send2rep{
     my $version = shift;
     my @reps = @_;
     my @pids;
-    foreach(@reps){
+    foreach(@reps) {
         print "Enviando $archivo a $_\n";
         my $host = $_;
         my $sftp = Net::SFTP::Foreign->new(host=>$host, user=>'javier');
@@ -529,7 +538,7 @@ sub send2rep{
     #   NOTIFICAR A TODO EL MUNDO EL ENVIO DE ARCHIVOS
     #   PARA QUE ACTUALICEN SU TABLA
     my $checksum = &checksum($archivo);
-    print "Notificando commit a @pids\n";
+    print "Notificando commit a @pids\n" if DEBUG;
     &notificarCommit($archivo,$version,$checksum,@pids);
 }
 
@@ -538,7 +547,7 @@ sub send2rep{
 # $archivo
 # $version (la ultima por defecto)
 # $replica
-sub getFromRep{
+sub getFromRep {
     my $archivo = shift;
     my $rep = shift;
     my $version = shift;
@@ -548,9 +557,9 @@ sub getFromRep{
 
 }
 
-# Rutina que busca las replicas que tienen un archivo dado y la ultima version
-# disponible 
-sub getRep{
+#   Rutina que busca las replicas que tienen un archivo dado y la 
+#   ultima version disponible 
+sub getRep {
     my $archivo = shift;
     print "Buscando archivo $archivo\n";
     my $version = 0;
@@ -558,10 +567,10 @@ sub getRep{
     my $checksum;
     while (my($pid, $rep) = each %tablaNodos) {
         my $arch;
-        my @prueba = $rep->archivos_todos();
-        print "Imprimiendo todos los archivos @prueba\n";
+        #my @prueba = $rep->archivos_todos();
+        #print "Imprimiendo todos los archivos @prueba\n";
         $arch = $rep->buscar_archivo($archivo);
-        if (defined($arch)){
+        if (defined($arch)) {
             print "hola\n";
             push(@replicas,$rep->nombre());
             print $arch->nombre . "\n";
@@ -573,12 +582,11 @@ sub getRep{
       print "replcas @replicas\n";
       @replicas = &lowRep unless (@replicas);
       return ($version,$checksum,@replicas);
-
 }
 
 # Rutina que busca las k replicas con menos carga
 #
-sub lowRep{
+sub lowRep {
     my %cp;
     my @replicas;
     while (my($pid, $rep) = each %tablaNodos) {
@@ -599,7 +607,7 @@ sub lowRep{
 }
 
 # Rutina que retorna la ultima version de un archivo
-sub getVersion{
+sub getVersion {
     my $archivo = shift;
     my $version;
     while (my($pid, $rep) = each %tablaNodos) {
@@ -607,8 +615,8 @@ sub getVersion{
         my @prueba = $rep->archivos_todos();
         print "Imprimiendo todos los archivos @prueba\n";
         $arch = $rep->buscar_archivo($archivo); 
-        if (defined($arch)){
-            print "Buscando la version del archivo $archivo\n";
+        if (defined($arch)) {
+            print "Buscando la version del archivo $archivo\n" if DEBUG;
             $version = $arch->contar_versiones();
             last;
         }
