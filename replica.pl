@@ -54,10 +54,10 @@ chomp($hostname);
 sub getCoord {
     print "Contactando al DNS para saber el estado del coordinador...\n" if DEBUG;
     my $server_url = 'http://' . DNS_URL . ':' . DNS_PORT . '/RPC2';
-    my $server = Frontier::Client->new(url => $server_url, use_objects => 0);
-    my $arg = $server->string($hostname);
-    my $result = $server->call('dns.coordinador', $arg);
-    my $aux = $result->{'coordinador'};
+    my $server     = Frontier::Client->new(url => $server_url, use_objects => 0);
+    my $arg        = $server->string($hostname);
+    my $result     = $server->call('dns.coordinador', $arg);
+    my $aux        = $result->{'coordinador'};
     chomp($aux);
     print "El coordinador es: $aux\n" if DEBUG;
     return $aux;
@@ -179,11 +179,10 @@ sub escuchar {
             print "Nuevo commit $archivo version: $version en las replicas @datos\n" if DEBUG;
             my $nombre_archivo = $archivo;
             foreach (@datos){
-                my $arch;
                 my $arch = $tablaNodos{$_}->buscar_archivo($archivo);
                 if (defined($arch)){
                     $arch->agregar_version($version=>$checksum);    
-                }else{
+                } else {
                   $archivo = shared_clone(Archivo->new('nombre' => $nombre_archivo));
                   $archivo->agregar_version($version => $checksum);
                   $tablaNodos{$_}->agregar_archivo($nombre_archivo => $archivo);
@@ -198,7 +197,11 @@ sub escuchar {
         if ($tipo_mensaje == 10) {
             #   Mensaje de notificacion de un servidor muerto
             my $servidor_muerto = shift @datos;
-            #$tablaNodos{}->;
+            print "Marcando a $servidor_muerto como muerto\n" if LOG;
+            my @pids_muerto = grep { $tablaNodos{$_}->nombre eq $servidor_muerto } keys %tablaNodos;
+            my $nodo_muerto = $tablaNodos{$pids_muerto[0]};
+            print Dumper $nodo_muerto;
+            $nodo_muerto->estado(0);
         }
     }
 }
@@ -258,15 +261,17 @@ sub chequearReplicas {
         sleep($timeout);
         foreach my $replica (values %tablaNodos) {
             my $nombre_replica = $replica->nombre;
-            next if $nombre_replica eq $hostname;
+            if (($nombre_replica eq $hostname) 
+                or ($replica->estado == 0)) {
+                next;
+            };
             print "Revisando: $nombre_replica.\n" if DEBUG;
             my $host_hr = check_ports($nombre_replica, $timeout, \%port_hash);
-            print Dumper $host_hr;
             my $replicaViva = $host_hr->{tcp}{$port}{open};
             if (!$replicaViva) {
                 print "Servidor $nombre_replica no responde.\n" if DEBUG;
-                $tablaNodos{"$replica->pid"}->bajar_contador;
-                if ($tablaNodos{"$replica->pid"}->estado == 0) {
+                $tablaNodos{$replica->pid}->bajar_contador;
+                if ($tablaNodos{$replica->pid}->estado == 0) {
                     print "El servidor $nombre_replica murio.\n" if LOG;
                     &notificarServidorMuerto($nombre_replica);
                     &replicarServidor();
@@ -314,7 +319,7 @@ sub tabla {
 # Esta rutina recibe un archivo del cliente para hacer el commit.
 # Se verifica que el checksum del archivo recibido sea distinto al 
 # checksum de la ultima version, de lo contrario no se realiza el commit
-sub clienteCommit{
+sub clienteCommit {
     my $usuario  = shift;
     my $proyecto = shift;
     my $archivo  = shift;
@@ -327,7 +332,7 @@ sub clienteCommit{
 }
 
 #
-sub clientePull{
+sub clientePull {
     my $usuario = shift;
     my $proyecto = shift;
     my $archivo = shift;
@@ -446,7 +451,6 @@ sub commit {
 }
 
 #
-#
 sub pull{
     my $usuario = shift;
     my $proyecto = shift;
@@ -478,12 +482,13 @@ sub versionOK{
     my $version = shift;
     $archivo = "$usuario.$proyecto.$archivo";
     my $arch;
+
     while (my($pid, $rep) = each %tablaNodos) {
 
         $arch = $rep->buscar_archivo($archivo); 
         if (defined($arch)) {
             my $versionTabla = $arch->contar_versiones();
-            return 0 if ($versionTabla < $version)
+            return 0 if ($versionTabla < $version);
             return 1;
         }
     }
@@ -501,7 +506,7 @@ sub arreglarRep{
 }
 
 # Rutina que calcula el checksum de un archivo
-sub checksum{
+sub checksum {
     my $archivo = shift;
     my $checksum;
     eval {
