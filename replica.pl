@@ -105,7 +105,7 @@ sub chequearCoord {
     while ($coord ne $hostname) {
         sleep($timeout);
         print "Revisando coordinador: $coord\n" if DEBUG;
-        print "Revisando el puerto: " . COORD_RPC_PORT . "\n";
+        print "Revisando el puerto: " . COORD_RPC_PORT . "\n" if DEBUG;
         my $host_hr = check_ports($coord, $timeout, \%port_hash);
         my $coordVivo = $host_hr->{tcp}{$port}{open};
         if (!$coordVivo) {
@@ -298,8 +298,10 @@ sub tabla {
 # Se verifica que el checksum del archivo recibido sea distinto al 
 # checksum de la ultima version, de lo contrario no se realiza el commit
 sub clienteCommit{
+    my $usuario = shift;
+    my $proyecto = shift;
     my $archivo = shift;
-    my $check = &commit($archivo);
+    my $check = &commit($usuario, $proyecto, $archivo);
     if ($check){
         return {'clienteCommit' =>"$archivo Up to date\n"};
     }else{     
@@ -408,12 +410,14 @@ sub fromStr2Tabla {
 #
 #
 sub commit {
+    my $usuario = shift;
+    my $proyecto = shift;
     my $archivo = shift;
     my $checksum = &checksum($archivo);
-    my ($version, $checksumL, @replicas) = &getRep($archivo);
-    print "Realizando commit del $archivo version: $version Replicas: @replicas\n"; 
+    my ($version, $checksumL, @replicas) = &getRep($usuario,$proyecto,$archivo);
+    print "Realizando commit del $archivo version: $version usuario: $usuario proyecto: $proyecto Replicas: @replicas\n" if DEBUG; 
     if ($checksum ne $checksumL) {
-        &send2rep($archivo,$version+1,@replicas);
+        &send2rep($usuario,$proyecto,$archivo,$version+1,@replicas);
         return 0;
     }else{
         return 1;
@@ -423,6 +427,8 @@ sub commit {
 #
 #
 sub pull{
+    my $usuario = shift;
+    my $proyecto = shift;
     my $archivo = shift;
     my $version = shift;
     my $checkL;
@@ -437,7 +443,7 @@ sub pull{
         $version = &getVersion($archivo);
     }
 
-    ($checkR,$rep,@arreglar) = &validarChecksum($archivo,$version);
+    ($checkR,$rep,@arreglar) = &validarChecksum($usuario,$proyecto,$archivo,$version);
     while ($checkR ne $checkL) {
         &getFromRep($archivo,$version,$rep);
         $checkL = &checksum($archivo);
@@ -446,12 +452,13 @@ sub pull{
 }
 
 #
-sub arreglarRep{
+    my $usuario = shift;
+    my $proyecto = shift;
     my $archivo = shift;
     my $version = shift;
     my @replicas = @_;
 
-    &send2rep($archivo,$version,@replicas);
+    &send2rep($usuario,$proyecto,$archivo,$version,@replicas);
 
 }
 
@@ -474,9 +481,11 @@ sub checksum{
 # Si existe un error en alguno de los checksum reenvia el archivo a 
 # la replica con el checksum incorrecto
 sub validarChecksum {
+    my $usuario = shift;
+    my $proyecto = shift;
     my $archivo = shift;
     my $version = shift;
-    my ($v,$c,@replicas) =  &getRep($archivo);
+    my ($v,$c,@replicas) =  &getRep($usuario,$proyecto,$archivo);
     my %checksums;
     shift @replicas;
     foreach(@replicas){
@@ -502,6 +511,8 @@ sub validarChecksum {
 
 #
 sub notificarCommit{
+    my $usuario = shift;
+    my $proyecto = shift;
     my $archivo = shift;
     my $version = shift;
     my $checksum = shift;
@@ -510,7 +521,7 @@ sub notificarCommit{
     print "Notificando commit al grupo multicast\n" if DEBUG;
     my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
     my $datos  = "2,";
-    $datos .= $archivo . ",";
+    $datos .= "$usuario.$proyecto.$archivo,";
     $datos .= $version . ",";
     $datos .= $checksum . ",";
     $datos .= "$_," foreach(@reps);
@@ -523,6 +534,8 @@ sub notificarCommit{
 # @servidores: lista de los servidores a los que se enviara el archivo
 # $archivo: achivo que se enviara
 sub send2rep{
+    my $usuario = shift;
+    my $proyecto = shift;
     my $archivo = shift;
     my $version = shift;
     my @reps = @_;
@@ -531,15 +544,15 @@ sub send2rep{
         print "Enviando $archivo a $_\n";
         my $host = $_;
         my $sftp = Net::SFTP::Foreign->new(host=>$host, user=>'javier');
-        $sftp->mkdir("$raiz/$archivo");
-        $sftp->put("/tmp/$archivo","$raiz/$archivo/$version");
+        $sftp->mkpath("$raiz/$usuario/$proyecto/$archivo");
+        $sftp->put("/tmp/$archivo","$raiz/$usuario/$proyecto/$archivo/$version");
         push(@pids,$pidRep{$_});
     }
     #   NOTIFICAR A TODO EL MUNDO EL ENVIO DE ARCHIVOS
     #   PARA QUE ACTUALICEN SU TABLA
     my $checksum = &checksum($archivo);
     print "Notificando commit a @pids\n" if DEBUG;
-    &notificarCommit($archivo,$version,$checksum,@pids);
+    &notificarCommit($usuario,$proyecto,$archivo,$version,$checksum,@pids);
 }
 
 # Rutina que recibe un archivo de una replica
@@ -560,26 +573,24 @@ sub getFromRep {
 #   Rutina que busca las replicas que tienen un archivo dado y la 
 #   ultima version disponible 
 sub getRep {
+    my $usuario =shift;
+    my $proyecto = shift;
     my $archivo = shift;
-    print "Buscando archivo $archivo\n";
     my $version = 0;
     my @replicas;
     my $checksum;
+
+    $archivo = "$usuario.$proyecto.$archivo";
     while (my($pid, $rep) = each %tablaNodos) {
         my $arch;
-        #my @prueba = $rep->archivos_todos();
-        #print "Imprimiendo todos los archivos @prueba\n";
         $arch = $rep->buscar_archivo($archivo);
         if (defined($arch)) {
-            print "hola\n";
             push(@replicas,$rep->nombre());
-            print $arch->nombre . "\n";
             $version = $arch->contar_versiones;
             $checksum = $arch->get_version($version);
           }
 
       }
-      print "replcas @replicas\n";
       @replicas = &lowRep unless (@replicas);
       return ($version,$checksum,@replicas);
 }
