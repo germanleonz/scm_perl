@@ -13,6 +13,7 @@ use constant COORD_RPC_PORT => '8081';
 my $coord;
 my $archivo;
 my $user;
+my $proyecto;
 
 sub getCoord {
     print "Contactando al DNS para saber el estado del coordinador...\n" if DEBUG;
@@ -31,7 +32,7 @@ sub commit {
     $sftp->put("$archivo","/tmp/$archivo");
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
-    my $result = $server->call('coordinador.clienteCommit',$archivo);
+    my $result = $server->call('coordinador.clienteCommit',$usuario,$proyecto,$archivo);
     my $mensaje = $result->{'clienteCommit'};
     print $mensaje . "\n";
 }
@@ -44,6 +45,7 @@ sub uso{
 
     -h          : Ayuda
     -u          : Usuario
+    -p          : Proyecto
     -f archivo  : Archivo a realizar commit
 
     ejemplo: $0 -f arhcivo.txt
@@ -53,12 +55,13 @@ EOF
 
 # Main
 
-my $opt_string = 'hf:u:';
+my $opt_string = 'hf:u:p:';
 
 getopts( "$opt_string", \%opt ) or &uso();
 &uso() if $opt{h};
 $user = $opt{u};
 $archivo = $opt{f};
+$proyecto = $opt{p};
 
 $coord = &getCoord;
 &commit($archivo);
