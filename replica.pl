@@ -26,7 +26,7 @@ use InfoNodo;
 
 use constant K              => 2; 
 use constant LOG            => 1;
-use constant DEBUG          => 0;
+use constant DEBUG          => 1;
 use constant MC_DESTINATION => '226.1.1.4:2000';
 use constant MC_GROUP       => '226.1.1.4';
 use constant MC_PORT        => '2000';
@@ -134,6 +134,17 @@ sub notificar {
     print "Notificacion enviada al grupo multicast\n" if DEBUG;
 }
 
+sub escucharRPC {
+    print "Arrancando el RPC general ...\n" if DEBUG;
+    
+    #   Metodos expuestos por RPC por el coordinador
+    my $methods = {
+        'rep.checksum' => \&checksum,
+    };
+    Frontier::Daemon->new(LocalPort => REP_RPC_PORT, methods => $methods)
+        or die "No se pudo iniciar el RPC general: $!";
+}
+
 #   Esta rutina escucha multicast y dependiendo del codigo que reciba
 #   ejecuta la rutina correspondiente
 sub escuchar {
@@ -162,8 +173,8 @@ sub escuchar {
             &agregarServidor($hostname, $pid);
         }
         if ($tipo_mensaje == 2){
-            my $archivo = shift @datos;
-            my $version = shift @datos;
+            my $archivo  = shift @datos;
+            my $version  = shift @datos;
             my $checksum = shift @datos;
             print "Nuevo commit $archivo version: $version en las replicas @datos\n" if DEBUG;
             my $nombre_archivo = $archivo;
@@ -180,10 +191,15 @@ sub escuchar {
             }
             #print Dumper (\%tablaNodos); 
         }
+        #if ($tipo_mensaje == 9) {
+            #   Mensaje de monitoreo recibido por el servidor
+            
+        #}
         if ($tipo_mensaje == 10) {
             #   Mensaje de notificacion de un servidor muerto
+            my $servidor_muerto = shift @datos;
+            #$tablaNodos{}->;
         }
-
     }
 }
 
@@ -228,10 +244,10 @@ sub wipe {
 #   Metodo que monitorea el estado de los servidores replica del sistema
 sub chequearReplicas {
 
-    my $port = MC_PORT;
+    my $port = REP_RPC_PORT;
 
     my %port_hash = (
-        udp => {
+        tcp => {
             $port => {},
         }
     );
@@ -243,14 +259,15 @@ sub chequearReplicas {
         foreach my $replica (values %tablaNodos) {
             my $nombre_replica = $replica->nombre;
             next if $nombre_replica eq $hostname;
-            print "Revisando: $nombre_replica\n" if DEBUG;
+            print "Revisando: $nombre_replica.\n" if DEBUG;
             my $host_hr = check_ports($nombre_replica, $timeout, \%port_hash);
-            my $replicaViva = $host_hr->{udp}{$port}{open};
+            print Dumper $host_hr;
+            my $replicaViva = $host_hr->{tcp}{$port}{open};
             if (!$replicaViva) {
                 print "Servidor $nombre_replica no responde.\n" if DEBUG;
                 $tablaNodos{"$replica->pid"}->bajar_contador;
                 if ($tablaNodos{"$replica->pid"}->estado == 0) {
-                    print "El servidor $nombre_replica murio\n" if LOG;
+                    print "El servidor $nombre_replica murio.\n" if LOG;
                     &notificarServidorMuerto($nombre_replica);
                     &replicarServidor();
                 }
@@ -298,10 +315,10 @@ sub tabla {
 # Se verifica que el checksum del archivo recibido sea distinto al 
 # checksum de la ultima version, de lo contrario no se realiza el commit
 sub clienteCommit{
-    my $usuario = shift;
+    my $usuario  = shift;
     my $proyecto = shift;
-    my $archivo = shift;
-    my $check = &commit($usuario, $proyecto, $archivo);
+    my $archivo  = shift;
+    my $check    = &commit($usuario, $proyecto, $archivo);
     if ($check){
         return {'clienteCommit' =>"$archivo Up to date\n"};
     }else{     
@@ -488,7 +505,7 @@ sub validarChecksum {
     my @modaCheck;
     my $moda;
     my @arreglar;
-    while(my($check,@rep) = each %checksums){
+    while(my($check,@rep) = each %checksums) {
         if (@modaCheck < @rep){
             if (@modaCheck){
                 push(@arreglar,$_) foreach @modaCheck;
@@ -633,6 +650,9 @@ sub getVersion {
 #   Consultar al dns quien es el coordinador
 $coord = &getCoord();
 mkdir $raiz;
+
+threads->new(\&escucharRPC)->detach;
+
 #   Enviar a todos el hostname y pid. 
 &notificar() unless $coord eq $hostname;
 $pidRep{$hostname} = $my_pid if $coord eq $hostname;
