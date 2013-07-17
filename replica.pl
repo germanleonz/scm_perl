@@ -338,6 +338,24 @@ sub clientePull {
     return {'clientePull' => 1};
 }
 
+sub clienteCheckout {
+    my $usuario = shift;
+    my $nombre_proyecto = shift;
+
+    my %nombres_archivos;
+    while (my $nodo = values %tablaNodos) {
+        my %archivos = $nodo->archivos_todos();
+        while (my $nombre_archivo = keys %archivos) {
+            if (index($nombre_archivo, "$usuario.$nombre_proyecto") != -1) {
+                $nombres_archivos{$nombre_archivo} = 1;
+                &pull($usuario, $nombre_proyecto, $nombre_archivo);
+            }
+        }
+    }
+
+    return {'clienteCheckout' => (keys %nombres_archivos)};
+}
+
 #   Inicializa las funciones del coordinador
 sub iniciarCoordinador {
     print "Arrancando el RPC de coordinador ...\n" if DEBUG;
@@ -353,6 +371,7 @@ sub iniciarCoordinador {
         'coordinador.tabla' => \&tabla,
         'coordinador.clienteCommit' => \&clienteCommit,
         'coordinador.clientePull' => \&clientePull,
+        'coordinador.clienteCheckout' => \&clienteCheckout,
     };
     Frontier::Daemon->new(LocalPort => COORD_RPC_PORT, methods => $methods)
         or die "No se pudo iniciar el servidor RPC: $!";
@@ -448,11 +467,11 @@ sub commit {
 }
 
 #
-sub pull{
-    my $usuario = shift;
+sub pull {
+    my $usuario  = shift;
     my $proyecto = shift;
-    my $archivo = shift;
-    my $version = shift;
+    my $archivo  = shift;
+    my $version  = shift;
     my $checkL;
     my $checkR;
     my @arreglar;
