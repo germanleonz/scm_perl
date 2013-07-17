@@ -12,7 +12,7 @@ use constant COORD_RPC_PORT => '8081';
 
 my $coord;
 my $archivo;
-my $user;
+my $usuario;
 my $proyecto;
 
 sub getCoord {
@@ -28,7 +28,7 @@ sub getCoord {
 
 sub commit {
     my $archivo = shift;
-    my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$user);
+    my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
     $sftp->put("$archivo","/tmp/$archivo");
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
@@ -59,7 +59,7 @@ my $opt_string = 'hf:u:p:';
 
 getopts( "$opt_string", \%opt ) or &uso();
 &uso() if $opt{h};
-$user = $opt{u};
+$usuario = $opt{u};
 $archivo = $opt{f};
 $proyecto = $opt{p};
 

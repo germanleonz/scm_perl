@@ -162,14 +162,16 @@ sub escuchar {
             &agregarServidor($hostname, $pid);
         }
         if ($tipo_mensaje == 2){
+            my $usuario = shift @datos;
+            my $proyecto = shift @datos;
             my $archivo = shift @datos;
             my $version = shift @datos;
             my $checksum = shift @datos;
             print "Nuevo commit $archivo version: $version en las replicas @datos\n" if DEBUG;
-            my $nombre_archivo = $archivo;
+            my $nombre_archivo = "$usuario.$proyecto.$archivo";
             foreach (@datos){
                 my $arch;
-                my $arch = $tablaNodos{$_}->buscar_archivo($archivo);
+                my $arch = $tablaNodos{$_}->buscar_archivo($nombre_archivo);
                 if (defined($arch)){
                     $arch->agregar_version($version=>$checksum);    
                 }else{
@@ -315,6 +317,7 @@ sub clientePull{
     my $proyecto = shift;
     my $archivo = shift;
     my $version = shift;
+    print "Realizando pull archivo: $archivo version: $version  usuario: $usuario\n" if DEBUG;
     &pull($usuario,$proyecto,$archivo,$version);
     return {'clientePull' => 1};
 }
@@ -415,11 +418,9 @@ sub commit {
     my $usuario = shift;
     my $proyecto = shift;
     my $archivo = shift;
-    my $ver = shift;
     my $checksum = &checksum($archivo);
     my ($version, $checksumL, @replicas) = &getRep($usuario,$proyecto,$archivo);
-    $version = $ver if defined($ver);
-    print "Realizando commit del $archivo version: $version usuario: $usuario proyecto: $proyecto Replicas: @replicas\n" if DEBUG; 
+    print "Realizando commit del $archivo version: $version usuario: $usuario proyecto: $proyecto Replicas: @replicas\n"; 
     if ($checksum ne $checksumL) {
         &send2rep($usuario,$proyecto,$archivo,$version+1,@replicas);
         return 0;
@@ -466,7 +467,7 @@ sub versionOK{
         $arch = $rep->buscar_archivo($archivo); 
         if (defined($arch)) {
             my $versionTabla = $arch->contar_versiones();
-            return 0 if ($versionTabla < $version)
+            return 0 if ($versionTabla < $version);
             return 1;
         }
     }
@@ -539,7 +540,7 @@ sub notificarCommit{
     my $checksum = shift;
     my @reps = @_;
     
-    print "Notificando commit al grupo multicast\n" if DEBUG;
+    print "Notificando commit  del archivo $usuario.$proyecto.$archivo al grupo multicast\n" if DEBUG;
     my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
     my $datos  = "2,";
     $datos .= "$usuario.$proyecto.$archivo,";
@@ -604,6 +605,7 @@ sub getRep {
     my $checksum;
 
     $archivo = "$usuario.$proyecto.$archivo";
+    print "Get rep archivo $archivo\n";
     while (my($pid, $rep) = each %tablaNodos) {
         my $arch;
         $arch = $rep->buscar_archivo($archivo);

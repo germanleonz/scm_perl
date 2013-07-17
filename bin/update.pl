@@ -27,6 +27,7 @@ sub getCoord {
 }
 
 sub pull {
+    print "Realizando pull\n";
     my $archivo = shift;
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
@@ -35,6 +36,7 @@ sub pull {
     my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
     $sftp->get("$archivo","/tmp/$archivo") if $sftp;
     print $mensaje . "\n";
+    print "listo\n";
 }
 
 sub uso{
@@ -64,7 +66,7 @@ $archivo = $opt{f};
 $proyecto = $opt{p};
 
 $coord = &getCoord;
-&commit($archivo);
+&pull($archivo);
 
 
 
