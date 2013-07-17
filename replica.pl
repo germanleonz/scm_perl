@@ -85,7 +85,7 @@ sub setCoord {
 
     $coord = $tablaNodos{$pid_nuevo_coord}->nombre;
     if ($coord eq $hostname) {
-        my $server_url = 'http://' . $DNS_URL . ':' . DNS_PORT . '/RPC2';
+        my $server_url = "http://$DNS_URL:" . DNS_PORT . '/RPC2';
         my $server     = Frontier::Client->new(url => $server_url, use_objects => 0);
         my $arg        = $server->string($hostname);
         my $result     = $server->call('dns.actualizar', $arg);
