@@ -301,7 +301,7 @@ sub clienteCommit{
     my $usuario = shift;
     my $proyecto = shift;
     my $archivo = shift;
-    my $check = &commit($usuario, $proyecto, $archivo);
+    my $check = &commit($usuario, $proyecto, $archivo,$version);
     if ($check){
         return {'clienteCommit' =>"$archivo Up to date\n"};
     }else{     
@@ -311,9 +311,11 @@ sub clienteCommit{
 
 #
 sub clientePull{
+    my $usuario = shift;
+    my $proyecto = shift;
     my $archivo = shift;
     my $version = shift;
-    &pull($archivo,$version);
+    &pull($usuario,$proyecto,$archivo,$version);
     return {'clientePull' => 1};
 }
 
@@ -413,8 +415,10 @@ sub commit {
     my $usuario = shift;
     my $proyecto = shift;
     my $archivo = shift;
+    my $ver = shift;
     my $checksum = &checksum($archivo);
     my ($version, $checksumL, @replicas) = &getRep($usuario,$proyecto,$archivo);
+    $version = $ver if defined($ver);
     print "Realizando commit del $archivo version: $version usuario: $usuario proyecto: $proyecto Replicas: @replicas\n" if DEBUG; 
     if ($checksum ne $checksumL) {
         &send2rep($usuario,$proyecto,$archivo,$version+1,@replicas);
@@ -437,29 +441,46 @@ sub pull{
     my $rep;
 
     if (defined($version)) {
-        print "error\n" unless (&versionOK($archivo,$version));
+        print "error\n" unless (&versionOK($usuario,$proyecto,$archivo,$version));
     }else{
-
-        $version = &getVersion($archivo);
+        $version = &getVersion($usuario,$proyecto,$archivo);
     }
 
     ($checkR,$rep,@arreglar) = &validarChecksum($usuario,$proyecto,$archivo,$version);
     while ($checkR ne $checkL) {
-        &getFromRep($archivo,$version,$rep);
+        &getFromRep($usuario,$proyecto,$archivo,$version,$rep);
         $checkL = &checksum($archivo);
     }
-    &arreglarRep($archivo,$version,@arreglar) if (@arreglar);
+    &arreglarRep($usuario,$proyecto,$archivo,$version,@arreglar) if (@arreglar);
 }
 
-#
+sub versionOK{
+    my $usuario = shift;
+    my $proyecto = shift;
+    my $archivo = shift;
+    my $version = shift;
+    $archivo = "$usuario.$proyecto.$archivo";
+    my $arch;
+    while (my($pid, $rep) = each %tablaNodos) {
+
+        $arch = $rep->buscar_archivo($archivo); 
+        if (defined($arch)) {
+            my $versionTabla = $arch->contar_versiones();
+            return 0 if ($versionTabla < $version)
+            return 1;
+        }
+    }
+    return 0;
+}
+
+sub arreglarRep{
     my $usuario = shift;
     my $proyecto = shift;
     my $archivo = shift;
     my $version = shift;
     my @replicas = @_;
-
+    print "Reenviando archivo a replicas con checksum malo Replicas: @replicas\n" if DEBUG;
     &send2rep($usuario,$proyecto,$archivo,$version,@replicas);
-
 }
 
 # Rutina que calcula el checksum de un archivo
@@ -561,12 +582,14 @@ sub send2rep{
 # $version (la ultima por defecto)
 # $replica
 sub getFromRep {
+    my $usuario = shift;
+    my $proyecto = shift;
     my $archivo = shift;
     my $rep = shift;
     my $version = shift;
-    $version = &getVersion($archivo) unless defined($version);
+    $version = &getVersion($usuario,$proyecto,$archivo) unless defined($version);
     my $sftp = Net::SFTP::Foreign->new(host=>$rep, user=>'javier');
-    $sftp->get("$raiz/$archivo/$version","/tmp/$archivo");
+    $sftp->get("$raiz/$usuario/$proyecto/$archivo/$version","/tmp/$archivo");
 
 }
 
@@ -619,12 +642,13 @@ sub lowRep {
 
 # Rutina que retorna la ultima version de un archivo
 sub getVersion {
+    my $usuario;
+    my $proyecto;
     my $archivo = shift;
     my $version;
+    $archivo = "$usuario.$proyecto.$archivo";
     while (my($pid, $rep) = each %tablaNodos) {
         my $arch;
-        my @prueba = $rep->archivos_todos();
-        print "Imprimiendo todos los archivos @prueba\n";
         $arch = $rep->buscar_archivo($archivo); 
         if (defined($arch)) {
             print "Buscando la version del archivo $archivo\n" if DEBUG;
