@@ -25,7 +25,8 @@ my $opt_string = 'hf:u:p:';
 
 getopts("$opt_string", \%opt) or &uso();
 &uso() if $opt{h};
-$usuario = $opt{u};
+$usuario = $opt{u} || `whoami`;
+chomp($usuario);
 $archivo = $opt{f};
 $proyecto = $opt{p};
 
@@ -34,13 +35,12 @@ $coord = &getCoord;
 
 #
 sub getCoord {
-    print "Contactando...\n" if DEBUG;
+    print "Conectando ...\n" if DEBUG;
     my $server_url = 'http://' . DNS_URL . ':' . DNS_PORT . '/RPC2';
-    my $server = Frontier::Client->new(url => $server_url, use_objects => 0);
-    my $result = $server->call('dns.coordinador');
-    my $aux = $result->{'coordinador'};
+    my $server     = Frontier::Client->new(url => $server_url, use_objects => 0);
+    my $result     = $server->call('dns.coordinador');
+    my $aux        = $result->{'coordinador'};
     chomp($aux);
-    print "El coordinador es: $aux\n" if DEBUG;
     return $aux;
 }
 
@@ -51,9 +51,9 @@ sub commit {
     $sftp->put("$archivo","/tmp/$archivo");
 
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
-    my $server = Frontier::Client->new(url => $server_url);
-    my $result = $server->call('coordinador.clienteCommit',$usuario,$proyecto,$archivo);
-    my $mensaje = $result->{'clienteCommit'};
+    my $server     = Frontier::Client->new(url => $server_url);
+    my $result     = $server->call('coordinador.clienteCommit',$usuario,$proyecto,$archivo);
+    my $mensaje    = $result->{'clienteCommit'};
     print $mensaje . "\n";
 }
 
