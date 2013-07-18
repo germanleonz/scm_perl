@@ -146,7 +146,6 @@ sub escucharRPC {
     #   Metodos expuestos por RPC por el coordinador
     my $methods = {
         'rep.checksum' => \&checksum,
-        'rep.compartir'     => \&compartir,
     };
         Frontier::Daemon->new(LocalPort => REP_RPC_PORT, methods => $methods)
         or die "No se pudo iniciar el RPC general: $!";
@@ -368,29 +367,6 @@ sub clienteCheckout {
     return {'clienteCheckout' => ($result)};
 }
 
-sub clienteShare {
-    
-    my $usuario = shift;
-    my $nombre_proyecto = shift;
-    my $invitado = shift;
-    print "Compartiendo el proyecto $nombre_proyecto del usuario $usuario con el
-    usuario $invitado\n";
-    my %nombres_archivos;
-    foreach (values %tablaNodos) {
-      my $rep = $_->nombre();
-        for my $pair ($_->archivos_todos()) {
-            my $nombre_archivo = $pair->[0];
-            if (index($nombre_archivo, "$usuario.$nombre_proyecto") != -1) {
-              my $rep_url = "http://$rep:" . REP_RPC_PORT . '/RPC2';
-              my $rep = Frontier::Client->new(url => $rep_url);
-              my $result = $rep->call('rep.compartir',$usuario,$nombre_proyecto,$invitado);
-              last;
-            }
-        }
-    }
-
-    return {'clienteShare' => 1};
-}
 #   Inicializa las funciones del coordinador
 sub iniciarCoordinador {
     print "Arrancando el RPC de coordinador ...\n" if $DEBUG;
@@ -407,7 +383,6 @@ sub iniciarCoordinador {
     'coordinador.clienteCommit' => \&clienteCommit,
     'coordinador.clientePull' => \&clientePull,
     'coordinador.clienteCheckout' => \&clienteCheckout,
-    'coordinador.clienteShare' => \&clienteShare,
   };
   Frontier::Daemon->new(LocalPort => COORD_RPC_PORT, methods => $methods)
       or die "No se pudo iniciar el servidor RPC: $!";
@@ -434,23 +409,50 @@ sub replicarServidor {
     my $servidor = shift;
     print "Replicando archivos de $servidor en los demas nodos del sistema.\n" if LOG;
 
-    my $pid_muerto = grep {$_->nombre eq $servidor} values %tablaNodos;
+    my $pid_muerto = $pidRep{$servidor};
     my $nodo = $tablaNodos{$pid_muerto};
 
     my @archivos = $nodo->archivos_todos();
     print "Archivos a replicar\n";
     print Dumper @archivos;
-    foreach (values %tablaNodos) {
-        my $posible_replica = $_;
-        print "Evaluando a $posible_replica->nombre\n";
 
-        foreach (0..$#archivos) { 
-            my $par = $archivos[$index];
-            my $archivo_aux = $par->[1]->nombre;
-            if ($posible_replica->tiene_archivo($archivo_aux)) {
-                print "Enviando $archivo_aux a $posible_replica->nombre\n";
-                #&send2Rep($usuario, $proyecto, $archivo, $version, @replicas);
-                splice @archivos, $index, 1;
+    #   PENDIENTE ITERAR SOBRE LOS NODOS ORDENADOS POR LA
+    #   CANTIDAD DE ARCHIVOS QUE TIENENE
+
+    ARCHIVOS: while (scalar @archivos) {
+        NODOS: foreach (values %tablaNodos) {
+            my $posible_replica = $_;
+            next if $posible_replica->nombre eq $servidor;
+            print "Evaluando a ";
+            print Dumper $posible_replica->nombre;
+
+            for my $i (0..$#archivos) { 
+                my $par = $archivos[$i];
+                my $archivo = $par->[1];
+                my $archivo_aux = $archivo->nombre;
+                print "Intentando enviar $archivo_aux a ";
+                print Dumper $posible_replica->nombre;
+                unless ($posible_replica->tiene_archivo($archivo_aux)) {
+                    print "Procesando $archivo_aux para\n";
+                    my @aux_archivo = split ('\.', $archivo_aux);
+                    my $usuario     = shift @aux_archivo;
+                    my $proyecto    = shift @aux_archivo;
+                    my $version     = $archivo->contar_versiones;
+
+                    my $extraer = "$usuario.$proyecto.";
+                    my $length  = length $extraer;
+                    my $nombre  = substr($archivo_aux, $length);
+                    my @replicas;
+                    push @replicas, $posible_replica->nombre;
+                    print "Enviar arc $nombre us $usuario v $version n";
+                    print "proy $proyecto al nodo @replicas\n";
+                    &send2rep($usuario, $proyecto, $nombre, $version, @replicas);
+                    splice @archivos, $i, 1;
+                    print "Ahora quedan estos archivos ";
+                    print Dumper @archivos;
+                    last ARCHIVOS if scalar @archivos == 0;
+                    next NODOS;
+                }
             }
         }
     }
@@ -577,16 +579,6 @@ sub arreglarRep{
     &send2rep($usuario,$proyecto,$archivo,$version,@replicas);
 }
 
-sub compartir{
-  my $usuario = shift;
-  my $proyecto = shift;
-  my $invitado = shift;
-  print "Creando enlance entre usuario $usuario proyecto $proyecto con
-  $invitado\n";
-  symlink("$raiz/$usuario/$proyecto","$raiz/$usuario/$proyecto") or die print "$!\n";
-  return 1;
-}
-
 # Rutina que calcula el checksum de un archivo
 sub checksum {
   my $usuario = shift;
@@ -692,7 +684,6 @@ sub send2rep {
     print "Enviando $archivo a $_\n";
     my $host = $_;
     my $sftp = Net::SFTP::Foreign->new(host=>$host, user=> $USER);
-    my $attrs;
     $sftp->mkpath("$raiz/$usuario/$proyecto/$archivo");
     $sftp->chmod("$raiz/$usuario/$proyecto/$archivo", 0777);
     #   SE INTENTA ALMACENAR EL ARCHIVO EN LA REPLICA 5 VECES
