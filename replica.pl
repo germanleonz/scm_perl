@@ -238,6 +238,7 @@ sub agregarServidor {
 # Rutina que crea el directorio raiz
 sub crearRaiz{
     mkdir $raiz;
+    chmod(0777, $raiz) or die "Couldn't chmod $raiz: $!";
 }
 # Rutina que borra todos los archivos almacenados en la replica
 sub wipe {
@@ -380,7 +381,7 @@ sub iniciarCoordinador {
     my $methods = {
         'coordinador.tabla' => \&tabla,
     'coordinador.clienteCommit' => \&clienteCommit,
-'coordinador.clientePull' => \&clientePull,
+    'coordinador.clientePull' => \&clientePull,
     'coordinador.clienteCheckout' => \&clienteCheckout,
   };
   Frontier::Daemon->new(LocalPort => COORD_RPC_PORT, methods => $methods)
@@ -511,7 +512,7 @@ sub commit {
     my $usuario  = shift;
     my $proyecto = shift;
     my $archivo  = shift;
-    my $checksum = &checksum($archivo);
+    my $checksum = &checksum($usuario,$archivo);
     my ($version, $checksumL, @replicas) = &getRep($usuario,$proyecto,$archivo);
     print "Realizando commit del $archivo version: $version usuario: $usuario 
     proyecto: $proyecto Replicas: @replicas\n" if LOG; 
@@ -684,6 +685,7 @@ sub send2rep {
     my $host = $_;
     my $sftp = Net::SFTP::Foreign->new(host=>$host, user=> $USER);
     $sftp->mkpath("$raiz/$usuario/$proyecto/$archivo");
+    $sftp->chmod("$raiz/$usuario/$proyecto/$archivo", 0777);
     #   SE INTENTA ALMACENAR EL ARCHIVO EN LA REPLICA 5 VECES
     my $intentos = 5;
     do {
@@ -783,7 +785,7 @@ sub lowRep {
 
     my $krep = 0;
     my $key = shift @cargas;
-    while ($krep < $K){
+    while ($krep < ((2 * $K) + 1)){
         $key = shift @cargas unless ($cp{$key});
         push(@replicas, shift @{$cp{$key}});
         $krep++;
@@ -837,6 +839,7 @@ if (POSIX::isdigit($opt{k} + 0)) {
 #   Consultar al dns quien es el coordinador
 $coord = &getCoord();
 mkdir $raiz;
+chmod(0777, $raiz) or die "Couldn't chmod $raiz: $!";
 
 threads->new(\&escucharRPC)->detach;
 
