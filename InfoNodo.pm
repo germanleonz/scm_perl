@@ -45,6 +45,7 @@ has 'archivo' => (
         agregar_archivo => 'set',
         buscar_archivo  => 'get',
         contar_archivos => 'count',
+        tiene_archivo   => 'exists',
     }
 );
 
