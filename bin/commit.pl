@@ -10,9 +10,10 @@ use constant DEBUG          => 1;
 use constant MC_DESTINATION => '226.1.1.4:2000';
 use constant MC_GROUP       => '226.1.1.4';
 use constant MC_PORT        => '2000';
-use constant DNS_URL        => 'titan.ldc.usb.ve';
+use constant DNS_URL        => 'karama.ldc.usb.ve';
 use constant DNS_PORT       => '8083';
 use constant COORD_RPC_PORT => '8081';
+use constant PERM           => '777';
 
 my $coord;
 my $archivo;
@@ -48,7 +49,9 @@ sub getCoord {
 sub commit {
     my $archivo = shift;
     my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
+    my $attrs;
     $sftp->mkpath("/tmp/$usuario/");
+    $sftp->chmod("/tmp/$usuario/",0777);
     $sftp->put("$archivo","/tmp/$usuario/$archivo");
 
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';

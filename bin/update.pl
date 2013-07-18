@@ -6,7 +6,7 @@ use constant DEBUG          => 1;
 use constant MC_DESTINATION => '226.1.1.4:2000';
 use constant MC_GROUP       => '226.1.1.4';
 use constant MC_PORT        => '2000';
-use constant DNS_URL        => 'titan.ldc.usb.ve';
+use constant DNS_URL        => 'karama.ldc.usb.ve';
 use constant DNS_PORT       => '8083';
 use constant COORD_RPC_PORT => '8081';
 
@@ -39,14 +39,15 @@ sub getCoord {
 
 sub pull {
     my $archivo    = shift;
+    print "Usuario $usuario\n";
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
     my $result = $server->call('coordinador.clientePull',$usuario,$proyecto,$archivo);
     my $mensaje = $result->{'clientePull'};
+    print "Recibiendo archivo $archivo $usuario $coord\n" if DEBUG;
     my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
-
-    print "Recibiendo archivo $archivo $usuario $coord \n" if DEBUG;
-    $sftp->get("/tmp/$suario/$archivo","./$archivo") unless $sftp->error;
+    print "Path /tmp/$usuario/$archivo\n";
+    $sftp->get("/tmp/$usuario/$archivo","$archivo") unless $sftp->error;
 }
 
 sub uso{

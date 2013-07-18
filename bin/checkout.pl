@@ -7,7 +7,7 @@ use Frontier::Client;
 use Net::SFTP::Foreign;
 use constant LOG            => 1;
 use constant DEBUG          => 1;
-use constant DNS_URL        => 'titan.ldc.usb.ve';
+use constant DNS_URL        => 'karama.ldc.usb.ve';
 use constant DNS_PORT       => '8083';
 use constant COORD_RPC_PORT => '8081';
 
