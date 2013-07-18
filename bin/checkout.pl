@@ -60,7 +60,7 @@ sub checkout {
     mkdir $nombre_proyecto;
     my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
     foreach (@nombres_archivos) {
-        $sftp->get("/tmp/$_", "$nombre_proyecto/$_") if $sftp;
+        $sftp->get("/tmp/$usuario/$_", "$nombre_proyecto/$_") if $sftp;
     }
 }
 

@@ -524,38 +524,37 @@ sub commit {
 
 #
 sub pull {
-    my $usuario  = shift;
-    my $proyecto = shift;
-    my $archivo  = shift;
-    my $version  = shift;
-    my $checkL;
-    my $checkR;
-    my @arreglar;
-    my $rep;
-    print "Pull:  usuario $usuario, proyecto $proyecto, archivo $archivo, 
-    version $version\n" if LOG;
-    if (defined($version)) {
-        print "error\n" unless (&versionOK($usuario,$proyecto,$archivo,$version));
-    }else{
-        $version = &getVersion($usuario,$proyecto,$archivo);
-    }
-    print "Version: $version\n";
-    ($checkR,$rep,@arreglar) = &validarChecksum($usuario,$proyecto,$archivo,$version);
-    print "$checkR $checkL\n";
-    while ($checkR ne $checkL) {
-        &getFromRep($usuario,$proyecto,$archivo,$version,$rep);
-        $checkL = &checksum($archivo);
-    }
-    &arreglarRep($usuario,$proyecto,$archivo,$version,@arreglar) if (@arreglar);
+  my $usuario  = shift;
+  my $proyecto = shift;
+  my $archivo  = shift;
+  my $version  = shift;
+  my $checkL;
+  my $checkR;
+  my @arreglar;
+  my $rep;
+  print "Pull:  usuario $usuario, proyecto $proyecto, archivo $archivo, 
+  version $version\n" if LOG;
+  if (defined($version)) {
+    print "error\n" unless (&versionOK($usuario,$proyecto,$archivo,$version));
+  }else{
+    $version = &getVersion($usuario,$proyecto,$archivo);
+  }
+  ($checkR,$rep,@arreglar) = &validarChecksum($usuario,$proyecto,$archivo,$version);
+  print "$checkR $checkL\n";
+  while ($checkR ne $checkL) {
+    &getFromRep($usuario,$proyecto,$archivo,$version,$rep);
+    $checkL = &checksum($usuario,$archivo);
+  }
+  &arreglarRep($usuario,$proyecto,$archivo,$version,@arreglar) if (scalar @arreglar);
 }
 
-sub versionOK {
-    my $usuario = shift;
-    my $proyecto = shift;
-    my $archivo = shift;
-    my $version = shift;
-    $archivo = "$usuario.$proyecto.$archivo";
-    my $arch;
+sub versionOK{
+  my $usuario = shift;
+  my $proyecto = shift;
+  my $archivo = shift;
+  my $version = shift;
+  $archivo = "$usuario.$proyecto.$archivo";
+  my $arch;
 
     while (my($pid, $rep) = each %tablaNodos) {
 
@@ -581,27 +580,27 @@ sub arreglarRep{
 
 # Rutina que calcula el checksum de un archivo
 sub checksum {
-    my $archivo = shift;
-    my $path = shift;
-    my $usuario = shift;
-    my $proyecto = shift;
-    my $checksum;
-    my $version = shift;
+  my $usuario = shift;
+  my $archivo = shift;
+  my $path = shift;
+  my $proyecto = shift;
+  my $checksum;
+  my $version = shift;
 
-    print "a $archivo p $path u $usuario pr $proyecto  v $version\n";
-    $path = $tmp unless defined ($path);
-    $archivo = "$usuario/$proyecto/$archivo" if defined ($path);
-    $version = "/$version" if defined($version);
-    eval {
-        print " Path $path$archivo$version\n";
-        open(FILE, "$path$archivo$version") or die "No se pudo encontrar el archivo: $archivo\n";
-        my $ctx = Digest::MD5->new;
-        $ctx->addfile(*FILE);
-        $checksum = $ctx->hexdigest;
-        close(FILE);
-    }; 
-    print "checksum $checksum\n";
-    return $checksum;
+  print "a $archivo p $path u $usuario pr $proyecto  v $version\n";
+  $path = "$tmp" unless defined ($path);
+  $archivo = "$usuario/$proyecto/$archivo" if defined ($path);
+  $version = "/$version" if defined($version);
+  eval {
+    print " Path $path$archivo$version\n";
+    open(FILE, "$path$archivo$version") or die "No se pudo encontrar el archivo: $archivo\n";
+    my $ctx = Digest::MD5->new;
+    $ctx->addfile(*FILE);
+    $checksum = $ctx->hexdigest;
+    close(FILE);
+  }; 
+  print "checksum $checksum\n";
+  return $checksum;
 }
 
 # Rutina que valida los checksum del archivo en todas las replicas
@@ -609,41 +608,43 @@ sub checksum {
 # Si existe un error en alguno de los checksum reenvia el archivo a 
 # la replica con el checksum incorrecto
 sub validarChecksum {
-    my $usuario = shift;
-    my $proyecto = shift;
-    my $archivo = shift;
-    my $version = shift;
-    my $path = "$raiz";
-    my (undef,undef,@replicas) =  &getRep($usuario,$proyecto,$archivo);
-    my %checksums;
+  my $usuario = shift;
+  my $proyecto = shift;
+  my $archivo = shift;
+  my $version = shift;
+  my $path = "$raiz";
+  my (undef,undef,@replicas) =  &getRep($usuario,$proyecto,$archivo);
+  my %checksums;
 
-    print Dumper @replicas;
-    foreach(@replicas){
-        my $rep_url = "http://$_:" . REP_RPC_PORT . '/RPC2';
-        my $rep = Frontier::Client->new(url => $rep_url);
-        my $result = $rep->call('rep.checksum',$archivo,$path,$usuario,$proyecto,$version);
-        print "Result $result\n";
-        push (@{$checksums{$result}},$_);
+  print Dumper @replicas;
+  foreach(@replicas){
+    my $rep_url = "http://$_:" . REP_RPC_PORT . '/RPC2';
+    my $rep = Frontier::Client->new(url => $rep_url);
+    my $result = $rep->call('rep.checksum',$usuario,$archivo,$path,$proyecto,$version);
+    print "Result $result\n";
+    push (@{$checksums{$result}},$_);
+  }
+
+  print "Checksums \n";
+  print Dumper \%checksums;
+
+  my @modaCheck;
+  my $moda;
+  my @arreglar;
+  while(my($check,$rep) = each %checksums) {
+    if (scalar @modaCheck < scalar @{$rep}){
+      if (scalar @modaCheck){
+        push(@arreglar,$_) foreach @modaCheck;
+      }
+      $moda = $check;
+      @modaCheck = @{$rep};
+    }else{
+        push(@arreglar,$_) foreach @{$rep};
     }
 
-    print "Checksums \n";
-    print Dumper \%checksums;
-
-my @modaCheck;
-my $moda;
-my @arreglar;
-while(my($check,$rep) = each %checksums) {
-    if ($#modaCheck < $#{$rep}){
-        if ($#modaCheck){
-            push(@arreglar,$_) foreach @modaCheck;
-        }
-        $moda = $check;
-        @modaCheck = @{$rep};
-        print "modaCheck @modaCheck\n";
-    }
-}
-print "Return moda $moda, modaCheck $modaCheck[0]\n";
-return($moda,$modaCheck[0],@arreglar);
+  }
+  print "Return moda $moda, modaCheck $modaCheck[0]\n";
+  return($moda,$modaCheck[0],@arreglar);
 }
 
 #
@@ -671,41 +672,41 @@ sub notificarCommit{
 # @servidores: lista de los servidores a los que se enviara el archivo
 # $archivo: achivo que se enviara
 sub send2rep {
-    my $usuario  = shift;
-    my $proyecto = shift;
-    my $archivo  = shift;
-    my $version  = shift;
-    my @reps     = @_;
-    my $path; 
-    my @pids;
-    foreach(@reps) {
-        print "Enviando $archivo a $_\n";
-        my $host = $_;
-        my $sftp = Net::SFTP::Foreign->new(host=>$host, user=> $USER);
-        $sftp->mkpath("$raiz/$usuario/$proyecto/$archivo");
-        #   SE INTENTA ALMACENAR EL ARCHIVO EN LA REPLICA 5 VECES
-        my $intentos = 5;
-        do {
-            print "Intent $intentos:";
-            print Dumper $sftp->error;
-            $sftp->put("$tmp/$archivo","$raiz/$usuario/$proyecto/$archivo/$version");
-            $intentos--;
-        } while ($sftp->error and $intentos > 0);
+  my $usuario = shift;
+  my $proyecto = shift;
+  my $archivo = shift;
+  my $version = shift;
+  my @reps = @_;
+  my $path; 
+  my @pids;
+  foreach(@reps) {
+    print "Enviando $archivo a $_\n";
+    my $host = $_;
+    my $sftp = Net::SFTP::Foreign->new(host=>$host, user=> $USER);
+    $sftp->mkpath("$raiz/$usuario/$proyecto/$archivo");
+    #   SE INTENTA ALMACENAR EL ARCHIVO EN LA REPLICA 5 VECES
+    my $intentos = 5;
+    do {
+      print "Intent $intentos:";
+      print Dumper $sftp->error;
+      $sftp->put("$tmp/$usuario/$archivo","$raiz/$usuario/$proyecto/$archivo/$version");
+      $intentos--;
+    } while ($sftp->error and $intentos > 0);
 
-        #   SI SE INTENTO 5 VECES, SE BORRA EL ARCHIVO DE LAS REPLICAS Y SE RETORNA ERROR 
-        if ($intentos == 0) {
-            $path = "$raiz/$usuario/$proyecto/$archivo/$version";
-            &rmFile($path, @reps);
-            return -1;
-        }
-
-        push(@pids,$pidRep{$_});
+    #   SI SE INTENTO 5 VECES, SE BORRA EL ARCHIVO DE LAS REPLICAS Y SE RETORNA ERROR 
+    if ($intentos == 0) {
+      $path = "$raiz/$usuario/$proyecto/$archivo/$version";
+      &rmFile($path, @reps);
+      return -1;
     }
-    #   NOTIFICAR A TODO EL MUNDO EL ENVIO DE ARCHIVOS
-    #   PARA QUE ACTUALICEN SU TABLA
-    my $checksum = &checksum($archivo);
-    print "Notificando commit a @pids\n" if $DEBUG;
-    &notificarCommit($usuario,$proyecto,$archivo,$version,$checksum,@pids);
+
+    push(@pids,$pidRep{$_});
+  }
+  #   NOTIFICAR A TODO EL MUNDO EL ENVIO DE ARCHIVOS
+  #   PARA QUE ACTUALICEN SU TABLA
+  my $checksum = &checksum($usuario,$archivo);
+  print "Notificando commit a @pids\n" if $DEBUG;
+  &notificarCommit($usuario,$proyecto,$archivo,$version,$checksum,@pids);
 }
 
 # Rutina que elimina un archivo de un conjunto de replicas
@@ -730,16 +731,16 @@ sub rmFile{
 # $version (la ultima por defecto)
 # $replica
 sub getFromRep {
-    my $usuario = shift;
-    my $proyecto = shift;
-    my $archivo = shift;
-    my $version = shift;
-    my $rep = shift;
+  my $usuario = shift;
+  my $proyecto = shift;
+  my $archivo = shift;
+  my $version = shift;
+  my $rep = shift;
 
-    $version = &getVersion($usuario,$proyecto,$archivo) unless defined($version);
-    my $sftp = Net::SFTP::Foreign->new(host=>$rep, user=>'javier');
-    print "Get from Rep  $rep $raiz/$usuario/$proyecto/$archivo/$version\n";
-    $sftp->get("$raiz/$usuario/$proyecto/$archivo/$version","$tmp/$archivo");
+  $version = &getVersion($usuario,$proyecto,$archivo) unless defined($version);
+  my $sftp = Net::SFTP::Foreign->new(host=>$rep, user=>'javier');
+  print "Get from Rep  $rep $raiz/$usuario/$proyecto/$archivo/$usuario/$version\n" if $DEBUG;
+  $sftp->get("$raiz/$usuario/$proyecto/$archivo/$version","$tmp/$usuario/$archivo");
 
 }
 
@@ -820,7 +821,7 @@ my %opt;
 
 getopts("$opt_string", \%opt) or &uso();
 
-&uso() if $opt{h} or ( $#ARGV < 6 and $#ARGV > 7 );
+&uso() if $opt{h} or ( scalar @ARGV < 6 and scalar @ARGV > 7 );
 $DEBUG   = 1 if $opt{v};
 
 if (POSIX::isdigit($opt{k} + 0)) {
