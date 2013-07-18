@@ -405,31 +405,58 @@ sub notificarServidorMuerto {
 
 #   Subrutina que replica los archivos de un servidor que haya muerto en los demas
 #   nodos del sistema. Debe garantizar balanceo de cargas y tolerancia suficiente
-#sub replicarServidor {
-#    my $servidor = shift;
-#    print "Replicando archivos de $servidor en los demas nodos del sistema.\n" if LOG;
-#
-#    my $pid_muerto = grep {$_->nombre eq $servidor} values %tablaNodos;
-#    my $nodo = $tablaNodos{$pid_muerto};
-#
-#    my @archivos = $nodo->archivos_todos();
-#    print "Archivos a replicar\n";
-#    print Dumper @archivos;
-#    foreach (values %tablaNodos) {
-#        my $posible_replica = $_;
-#        print "Evaluando a $posible_replica->nombre\n";
-#
-#        foreach (0..$#archivos) { 
-#            my $par = $archivos[$index];
-#            my $archivo_aux = $par->[1]->nombre;
-#            if ($posible_replica->tiene_archivo($archivo_aux)) {
-#                print "Enviando $archivo_aux a $posible_replica->nombre\n";
-#                #&send2Rep($usuario, $proyecto, $archivo, $version, @replicas);
-#                splice @archivos, $index, 1;
-#            }
-#        }
-#    }
-#}
+sub replicarServidor {
+    my $servidor = shift;
+    print "Replicando archivos de $servidor en los demas nodos del sistema.\n" if LOG;
+
+    my $pid_muerto = $pidRep{$servidor};
+    my $nodo = $tablaNodos{$pid_muerto};
+
+    my @archivos = $nodo->archivos_todos();
+    print "Archivos a replicar\n";
+    print Dumper @archivos;
+
+    #   PENDIENTE ITERAR SOBRE LOS NODOS ORDENADOS POR LA
+    #   CANTIDAD DE ARCHIVOS QUE TIENENE
+
+    ARCHIVOS: while (scalar @archivos) {
+        NODOS: foreach (values %tablaNodos) {
+            my $posible_replica = $_;
+            next if $posible_replica->nombre eq $servidor;
+            print "Evaluando a ";
+            print Dumper $posible_replica->nombre;
+
+            for my $i (0..$#archivos) { 
+                my $par = $archivos[$i];
+                my $archivo = $par->[1];
+                my $archivo_aux = $archivo->nombre;
+                print "Intentando enviar $archivo_aux a ";
+                print Dumper $posible_replica->nombre;
+                unless ($posible_replica->tiene_archivo($archivo_aux)) {
+                    print "Procesando $archivo_aux para\n";
+                    my @aux_archivo = split ('\.', $archivo_aux);
+                    my $usuario     = shift @aux_archivo;
+                    my $proyecto    = shift @aux_archivo;
+                    my $version     = $archivo->contar_versiones;
+
+                    my $extraer = "$usuario.$proyecto.";
+                    my $length  = length $extraer;
+                    my $nombre  = substr($archivo_aux, $length);
+                    my @replicas;
+                    push @replicas, $posible_replica->nombre;
+                    print "Enviar arc $nombre us $usuario v $version n";
+                    print "proy $proyecto al nodo @replicas\n";
+                    &send2rep($usuario, $proyecto, $nombre, $version, @replicas);
+                    splice @archivos, $i, 1;
+                    print "Ahora quedan estos archivos ";
+                    print Dumper @archivos;
+                    last ARCHIVOS if scalar @archivos == 0;
+                    next NODOS;
+                }
+            }
+        }
+    }
+}
 
 #   Transforma el hash de InfoNodos en formato de listas para transmitirlo
 #   por RPC
@@ -657,7 +684,6 @@ sub send2rep {
     print "Enviando $archivo a $_\n";
     my $host = $_;
     my $sftp = Net::SFTP::Foreign->new(host=>$host, user=> $USER);
-    my $attrs;
     $sftp->mkpath("$raiz/$usuario/$proyecto/$archivo");
     $sftp->chmod("$raiz/$usuario/$proyecto/$archivo", 0777);
     #   SE INTENTA ALMACENAR EL ARCHIVO EN LA REPLICA 5 VECES
