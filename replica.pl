@@ -26,8 +26,7 @@ use POSIX ();
 use Archivo;
 use InfoNodo;
 
-use constant K              => 2; 
-use constant LOG            => 0;
+use constant LOG            => 1;
 use constant DEBUG          => 0;
 use constant MC_DESTINATION => '226.1.1.4:2000';
 use constant MC_GROUP       => '226.1.1.4';
@@ -59,39 +58,39 @@ chomp($hostname);
 #
 
 sub getCoord {
-  print "Contactando al DNS para saber el estado del coordinador...\n" if $DEBUG;
-  my $server_url = "http://$DNS_URL:" . DNS_PORT . "/RPC2";
-  my $server     = Frontier::Client->new(url => $server_url, use_objects => 0);
-  my $arg        = $server->string($hostname);
-  my $result     = $server->call('dns.coordinador', $arg);
-  my $aux        = $result->{'coordinador'};
-  chomp($aux);
-  print "El coordinador es: $aux\n" if $DEBUG;
-  return $aux;
+    print "Contactando al DNS para saber el estado del coordinador...\n" if $DEBUG;
+    my $server_url = "http://$DNS_URL:" . DNS_PORT . "/RPC2";
+    my $server     = Frontier::Client->new(url => $server_url, use_objects => 0);
+    my $arg        = $server->string($hostname);
+    my $result     = $server->call('dns.coordinador', $arg);
+    my $aux        = $result->{'coordinador'};
+    chomp($aux);
+    print "El coordinador es: $aux\n" if $DEBUG;
+    return $aux;
 }
 
 #
 sub setCoord {
-  print "Cambiando de coordinador...\n" if $DEBUG;
-  my $coordViejo = $coord;
+    print "Cambiando de coordinador...\n" if $DEBUG;
+    my $coordViejo = $coord;
 
-  my @pids_todos = sort keys %tablaNodos;
-  my $pid_nuevo_coord;
-  foreach (@pids_todos) {
-    if ($tablaNodos{$_}->estado == 5) {
-      $pid_nuevo_coord = $_;
-      last;
+    my @pids_todos = sort keys %tablaNodos;
+    my $pid_nuevo_coord;
+    foreach (@pids_todos) {
+        if ($tablaNodos{$_}->estado == 5) {
+            $pid_nuevo_coord = $_;
+            last;
+        }
     }
-  }
 
-  $coord = $tablaNodos{$pid_nuevo_coord}->nombre;
-  if ($coord eq $hostname) {
-    my $server_url = "http://$DNS_URL:" . DNS_PORT . '/RPC2';
-    my $server     = Frontier::Client->new(url => $server_url, use_objects => 0);
-    my $arg        = $server->string($hostname);
-    my $result     = $server->call('dns.actualizar', $arg);
-    print "Coordinador cambiado en el DNS\n" if $DEBUG;
-  }
+    $coord = $tablaNodos{$pid_nuevo_coord}->nombre;
+    if ($coord eq $hostname) {
+        my $server_url = "http://$DNS_URL:" . DNS_PORT . '/RPC2';
+        my $server     = Frontier::Client->new(url => $server_url, use_objects => 0);
+        my $arg        = $server->string($hostname);
+        my $result     = $server->call('dns.actualizar', $arg);
+        print "Coordinador cambiado en el DNS\n" if $DEBUG;
+    }
 }
 
 #   Esta rutina verifica el estado del coordinador actual
@@ -99,209 +98,209 @@ sub setCoord {
 #   lo cambia al proximo de la lista de coordinadores
 #   y actualiza al DNS en caso de alguien no lo haya hecho
 sub chequearCoord {
-  my $port = COORD_RPC_PORT;
+    my $port = COORD_RPC_PORT;
 
-  my %port_hash = (
-    tcp => {
-      $port => {},
-    }
-  );
+    my %port_hash = (
+        tcp => {
+            $port => {},
+        }
+    );
 
-  my $timeout = 5;
+    my $timeout = 5;
 
-  while ($coord ne $hostname) {
-    sleep($timeout);
-    print "Revisando coordinador: $coord\n" if $DEBUG;
-    print "Revisando el puerto: " . COORD_RPC_PORT . "\n" if $DEBUG;
-    my $host_hr = check_ports($coord, $timeout, \%port_hash);
+    while ($coord ne $hostname) {
+        sleep($timeout);
+        print "Revisando coordinador: $coord\n" if $DEBUG;
+        print "Revisando el puerto: " . COORD_RPC_PORT . "\n" if $DEBUG;
+        my $host_hr = check_ports($coord, $timeout, \%port_hash);
     my $coordVivo = $host_hr->{tcp}{$port}{open};
     if (!$coordVivo) {
-      print "Coordinador muerto. Cambiando coordinador\n" if $DEBUG;
-      my @aux = grep { $tablaNodos{$_}->nombre eq $coord } keys %tablaNodos;
-      my $pid_coordinador = shift @aux;
-      print "PID $pid_coordinador\n";
-      $tablaNodos{$pid_coordinador}->bajar_contador();
-      &setCoord();
+        print "Coordinador muerto. Cambiando coordinador\n" if $DEBUG;
+        my @aux = grep { $tablaNodos{$_}->nombre eq $coord } keys %tablaNodos;
+        my $pid_coordinador = shift @aux;
+        print "PID $pid_coordinador\n";
+        $tablaNodos{$pid_coordinador}->bajar_contador();
+        &setCoord();
     } else {
-      print "Coordinador $coord activo.\n" if $DEBUG;
+        print "Coordinador $coord activo.\n" if $DEBUG;
     }
-  }
-  return 1;
+}
+return 1;
 }
 
 #   Esta rutina notifica a todos los servidores la incorporacion de
 #   este servidor replica enviando con multicast su hostname y pid
 sub notificar {
-  print "Notificando mi informacion al grupo multicast\n" if $DEBUG;
-  my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
-  my $datos  = "1,";
-  $datos .= $hostname . ",";
-  $datos .= $my_pid;
-  $socket->send($datos) || die "No se pudo notificar al grupo: $!";
-  print "Notificacion enviada al grupo multicast\n" if $DEBUG;
+    print "Notificando mi informacion al grupo multicast\n" if $DEBUG;
+    my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
+    my $datos  = "1,";
+    $datos .= $hostname . ",";
+    $datos .= $my_pid;
+    $socket->send($datos) || die "No se pudo notificar al grupo: $!";
+    print "Notificacion enviada al grupo multicast\n" if $DEBUG;
 }
 
 sub escucharRPC {
-  print "Arrancando el RPC general ...\n" if $DEBUG;
+    print "Arrancando el RPC general ...\n" if $DEBUG;
 
-  #   Metodos expuestos por RPC por el coordinador
-  my $methods = {
-    'rep.checksum' => \&checksum,
-  };
-  Frontier::Daemon->new(LocalPort => REP_RPC_PORT, methods => $methods)
-    or die "No se pudo iniciar el RPC general: $!";
+    #   Metodos expuestos por RPC por el coordinador
+    my $methods = {
+        'rep.checksum' => \&checksum,
+    };
+        Frontier::Daemon->new(LocalPort => REP_RPC_PORT, methods => $methods)
+        or die "No se pudo iniciar el RPC general: $!";
 }
 
 #   Esta rutina escucha multicast y dependiendo del codigo que reciba
 #   ejecuta la rutina correspondiente
 sub escuchar {
-  print "Esuchando futuras acciones como servidor replica...\n" if $DEBUG;
+    print "Esuchando futuras acciones como servidor replica...\n" if $DEBUG;
 
-  my $sock = IO::Socket::Multicast->new(Proto=>'udp', LocalPort=>MC_PORT);
-  $sock->mcast_add(MC_GROUP) || die "No se pudo asociar al grupo multicast: $!\n"; 
+    my $sock = IO::Socket::Multicast->new(Proto=>'udp', LocalPort=>MC_PORT);
+    $sock->mcast_add(MC_GROUP) || die "No se pudo asociar al grupo multicast: $!\n"; 
 
-  while (1) {
-    my $data;
-    print "Esperando una accion...\n" if $DEBUG;
-    next unless $sock->recv($data,1024);
+    while (1) {
+        my $data;
+        print "Esperando una accion...\n" if $DEBUG;
+        next unless $sock->recv($data,1024);
 
-    print "Manejando un mensaje multicast...\n" if $DEBUG;
+        print "Manejando un mensaje multicast...\n" if $DEBUG;
 
-    my @datos = split(',',$data);
+        my @datos = split(',',$data);
 
-    my $tipo_mensaje = shift @datos;
+        my $tipo_mensaje = shift @datos;
 
-    #   Aqui se debe verificar el tipo de mensaje que llego
-    if ($tipo_mensaje == 1) {
-      print "Agregando un nuevo servidor\n" if $DEBUG;
-      my $hostname = $datos[0];
-      my $pid = $datos[1];
-      $pid = $tablaNodos{$hostname}->pid if (exists $tablaNodos{$hostname});
-      &agregarServidor($hostname, $pid);
-    }
-    if ($tipo_mensaje == 2){
-      my $archivo = shift @datos;
-      my $version = shift @datos;
-      my $checksum = shift @datos;
-      print "Nuevo commit $archivo version: $version en las replicas @datos\n" if $DEBUG;
-      my $nombre_archivo = $archivo;
-      foreach (@datos){
-        my $arch = $tablaNodos{$_}->buscar_archivo($archivo);
-        if (defined($arch)){
-          $arch->agregar_version($version=>$checksum);    
-        } else {
-          $archivo = shared_clone(Archivo->new('nombre' => $nombre_archivo));
-          $archivo->agregar_version($version => $checksum);
-          $tablaNodos{$_}->agregar_archivo($nombre_archivo => $archivo);
+        #   Aqui se debe verificar el tipo de mensaje que llego
+        if ($tipo_mensaje == 1) {
+            print "Agregando un nuevo servidor\n" if $DEBUG;
+            my $hostname = $datos[0];
+            my $pid = $datos[1];
+            $pid = $tablaNodos{$hostname}->pid if (exists $tablaNodos{$hostname});
+            &agregarServidor($hostname, $pid);
         }
-      }
-    }
-    if ($tipo_mensaje == 10) {
-      #   Mensaje de notificacion de un servidor muerto
-      my $servidor_muerto = shift @datos;
-      print "Marcando a $servidor_muerto como muerto\n" if LOG;
-      my @pids_muerto = grep { $tablaNodos{$_}->nombre eq $servidor_muerto } keys %tablaNodos;
-      my $nodo_muerto = $tablaNodos{$pids_muerto[0]};
-      print Dumper $nodo_muerto;
-      $nodo_muerto->estado(0);
+        if ($tipo_mensaje == 2){
+            my $archivo = shift @datos;
+            my $version = shift @datos;
+            my $checksum = shift @datos;
+            print "Nuevo commit $archivo version: $version en las replicas @datos\n" if $DEBUG;
+            my $nombre_archivo = $archivo;
+            foreach (@datos){
+                my $arch = $tablaNodos{$_}->buscar_archivo($archivo);
+                if (defined($arch)){
+                    $arch->agregar_version($version=>$checksum);    
+                } else {
+                    $archivo = shared_clone(Archivo->new('nombre' => $nombre_archivo));
+                    $archivo->agregar_version($version => $checksum);
+                    $tablaNodos{$_}->agregar_archivo($nombre_archivo => $archivo);
+                }
+            }
+        }
+        if ($tipo_mensaje == 10) {
+            #   Mensaje de notificacion de un servidor muerto
+            my $servidor_muerto = shift @datos;
+            print "Marcando a $servidor_muerto como muerto\n" if LOG;
+            my @pids_muerto = grep { $tablaNodos{$_}->nombre eq $servidor_muerto } keys %tablaNodos;
+            my $nodo_muerto = $tablaNodos{$pids_muerto[0]};
+            print Dumper $nodo_muerto;
+            $nodo_muerto->estado(0);
 
-      my $nuevo :shared = shared_clone(InfoNodo->new);
-      bless ($nuevo, 'InfoNodo');
-      $nuevo->nombre($servidor_muerto);
-      $nuevo->pid($pids_muerto[0]);
-      $nuevo->estado(0);
-      $tablaNodos{$pids_muerto[0]} = $nuevo;
+            my $nuevo :shared = shared_clone(InfoNodo->new);
+            bless ($nuevo, 'InfoNodo');
+            $nuevo->nombre($servidor_muerto);
+            $nuevo->pid($pids_muerto[0]);
+            $nuevo->estado(0);
+            $tablaNodos{$pids_muerto[0]} = $nuevo;
+        }
     }
-  }
 }
 
 #   Esta rutina se encarga de agregar un nuevo servidor a la tabla 
 sub agregarServidor {
-  my ($servidor, $pid) = @_;
-  $pidRep{$servidor} = $pid;
+    my ($servidor, $pid) = @_;
+    $pidRep{$servidor} = $pid;
 
-  print "Agregando:$servidor:$pid\n" if $DEBUG;
+    print "Agregando:$servidor:$pid\n" if $DEBUG;
 
-  #   Agregamos la informacion del nuevo nodo a la tabla
-  my $nodo = $tablaNodos{"$pid"}; 
-  if (defined $nodo) {
-    #   El nodo revivio
-    $tablaNodos{$pid}->reset_contador();
-  } else {
-    my $nuevo :shared = shared_clone(InfoNodo->new);
-    bless ($nuevo, 'InfoNodo');
-    $nuevo->nombre($servidor);
-    $nuevo->pid($pid);
-    $tablaNodos{$pid} = $nuevo;
-  }
+    #   Agregamos la informacion del nuevo nodo a la tabla
+    my $nodo = $tablaNodos{"$pid"}; 
+    if (defined $nodo) {
+        #   El nodo revivio
+        $tablaNodos{$pid}->reset_contador();
+    } else {
+        my $nuevo :shared = shared_clone(InfoNodo->new);
+        bless ($nuevo, 'InfoNodo');
+        $nuevo->nombre($servidor);
+        $nuevo->pid($pid);
+        $tablaNodos{$pid} = $nuevo;
+    }
 }
 
 # Rutina que crea el directorio raiz
 sub crearRaiz{
-  mkdir $raiz;
+    mkdir $raiz;
 }
 # Rutina que borra todos los archivos almacenados en la replica
 sub wipe {
-  system("rm -r $raiz/*");
-  &crearRaiz();
+    system("rm -r $raiz/*");
+    &crearRaiz();
 }
 
 #   Metodo que monitorea el estado de los servidores replica del sistema
 sub chequearReplicas {
 
-  my $port = REP_RPC_PORT;
+    my $port = REP_RPC_PORT;
 
-  my %port_hash = (
-    tcp => {
-      $port => {},
-    }
-  );
-
-  my $timeout = 5;
-
-  while (1) {
-    sleep($timeout);
-    foreach my $replica (values %tablaNodos) {
-      my $nombre_replica = $replica->nombre;
-      if (($nombre_replica eq $hostname) 
-          or ($replica->estado == 0)) {
-        next;
-      };
-      print "Revisando: $nombre_replica.\n" if $DEBUG;
-      my $host_hr = check_ports($nombre_replica, $timeout, \%port_hash);
-      my $replicaViva = $host_hr->{tcp}{$port}{open};
-      if (!$replicaViva) {
-        print "Servidor $nombre_replica no responde.\n" if $DEBUG;
-        $tablaNodos{$replica->pid}->bajar_contador;
-        if ($tablaNodos{$replica->pid}->estado == 0) {
-          print "El servidor $nombre_replica murio.\n" if LOG;
-          &notificarServidorMuerto($nombre_replica);
-          &replicarServidor($nombre_replica);
+    my %port_hash = (
+        tcp => {
+            $port => {},
         }
-      } else {
-        print "Todo bien con $nombre_replica.\n" if $DEBUG;
-      }
+    );
+
+    my $timeout = 5;
+
+    while (1) {
+        sleep($timeout);
+        foreach my $replica (values %tablaNodos) {
+            my $nombre_replica = $replica->nombre;
+            if (($nombre_replica eq $hostname) 
+                    or ($replica->estado == 0)) {
+                next;
+            };
+            print "Revisando: $nombre_replica.\n" if $DEBUG;
+            my $host_hr = check_ports($nombre_replica, $timeout, \%port_hash);
+        my $replicaViva = $host_hr->{tcp}{$port}{open};
+        if (!$replicaViva) {
+            print "Servidor $nombre_replica no responde.\n" if $DEBUG;
+            $tablaNodos{$replica->pid}->bajar_contador;
+            if ($tablaNodos{$replica->pid}->estado == 0) {
+                print "El servidor $nombre_replica murio.\n" if LOG;
+                &replicarServidor($nombre_replica);
+                &notificarServidorMuerto($nombre_replica);
+            }
+        } else {
+            print "Todo bien con $nombre_replica.\n" if $DEBUG;
+        }
     }
-  }
+}
 }
 
 #   Metodos expuestos por RPC en los servidores replica
 sub getTabla {
-  my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
-  my $server = Frontier::Client->new(url => $server_url);
+    my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
+    my $server = Frontier::Client->new(url => $server_url);
 
-  my $result = $server->call('coordinador.tabla');
-  my $tablaStr = $result->{'tabla'};
+    my $result = $server->call('coordinador.tabla');
+    my $tablaStr = $result->{'tabla'};
 
-  %tablaNodos = &fromStr2Tabla($tablaStr);
+    %tablaNodos = &fromStr2Tabla($tablaStr);
 
-  print "Tabla de InfoNodos que me llego de: $coord\n" if $DEBUG;
-  print Dumper (\%tablaNodos) if $DEBUG;
+    print "Tabla de InfoNodos que me llego de: $coord\n" if $DEBUG;
+    print Dumper (\%tablaNodos) if $DEBUG;
 
-  &getTabla() unless exists $tablaNodos{"$my_pid"};
-  &crearRaiz;
-  wipe($my_pid) if $tablaNodos{$my_pid}->contar_archivos() == 0;
-  1;
+    &getTabla() unless exists $tablaNodos{"$my_pid"};
+    &crearRaiz;
+    wipe($my_pid) if $tablaNodos{$my_pid}->contar_archivos() == 0;
+    1;
 }
 
 #
@@ -310,82 +309,82 @@ sub getTabla {
 
 # Metodos RPC expuestos por el coordinador 
 sub tabla {
-  my $tablaStr = &fromTabla2Str();
+    my $tablaStr = &fromTabla2Str();
 
-  print "Tabla que se va a enviar...\n" if $DEBUG;
-  print Dumper \%tablaNodos if $DEBUG;
+    print "Tabla que se va a enviar...\n" if $DEBUG;
+    print Dumper \%tablaNodos if $DEBUG;
 
-  return {'tabla' => $tablaStr};
+return {'tabla' => $tablaStr};
 }
 
 # Esta rutina recibe un archivo del cliente para hacer el commit.
 # Se verifica que el checksum del archivo recibido sea distinto al 
 # checksum de la ultima version, de lo contrario no se realiza el commit
 sub clienteCommit {
-  my $usuario  = shift;
-  my $proyecto = shift;
-  my $archivo  = shift;
-  my $check    = &commit($usuario, $proyecto, $archivo);
-  if ($check == 1 ){
-    return {'clienteCommit' =>"$archivo Up to date\n"};
-  } elsif ($check == -1){
-    return {'clienteCommit' => "Imposible conectar con servidor, intente mas tarde\n"}
-  }else{     
-    return {'clienteCommit' => "Commit realizado\n"};
-  }
+    my $usuario  = shift;
+    my $proyecto = shift;
+    my $archivo  = shift;
+    my $check    = &commit($usuario, $proyecto, $archivo);
+    if ($check == 1 ){
+        return {'clienteCommit' =>"$archivo Up to date\n"};
+    } elsif ($check == -1){
+        return {'clienteCommit' => "Imposible conectar con servidor, intente mas tarde\n"}
+    }else{     
+        return {'clienteCommit' => "Commit realizado\n"};
+    }
 }
 
 #
 sub clientePull {
-  my $usuario = shift;
-  my $proyecto = shift;
-  my $archivo = shift;
-  my $version = shift;
-  &pull($usuario,$proyecto,$archivo,$version);
-  return {'clientePull' => 1};
+    my $usuario = shift;
+    my $proyecto = shift;
+    my $archivo = shift;
+    my $version = shift;
+    &pull($usuario,$proyecto,$archivo,$version);
+    return {'clientePull' => 1};
 }
 
 sub clienteCheckout {
-  my $usuario = shift;
-  my $nombre_proyecto = shift;
+    my $usuario = shift;
+    my $nombre_proyecto = shift;
 
-  my %nombres_archivos;
-  foreach (values %tablaNodos) {
-    for my $pair ($_->archivos_todos()) {
-      my $nombre_archivo = $pair->[0];
-      if (index($nombre_archivo, "$usuario.$nombre_proyecto") != -1) {
-        my $length = length "$usuario.$nombre_proyecto.";
-        my $archivo = substr($nombre_archivo,$length);
-        $nombres_archivos{$archivo} = 1;
-        &pull($usuario, $nombre_proyecto, $archivo);
-      }
+    my %nombres_archivos;
+    foreach (values %tablaNodos) {
+        for my $pair ($_->archivos_todos()) {
+            my $nombre_archivo = $pair->[0];
+            if (index($nombre_archivo, "$usuario.$nombre_proyecto") != -1) {
+                my $length = length "$usuario.$nombre_proyecto.";
+                my $archivo = substr($nombre_archivo,$length);
+                $nombres_archivos{$archivo} = 1;
+                &pull($usuario, $nombre_proyecto, $archivo);
+            }
+        }
     }
-  }
 
-  my @aux = keys %nombres_archivos;
-  my $result = join('&',@aux);
-  return {'clienteCheckout' => ($result)};
+    my @aux = keys %nombres_archivos;
+    my $result = join('&',@aux);
+    return {'clienteCheckout' => ($result)};
 }
 
 #   Inicializa las funciones del coordinador
 sub iniciarCoordinador {
-  print "Arrancando el RPC de coordinador ...\n" if $DEBUG;
+    print "Arrancando el RPC de coordinador ...\n" if $DEBUG;
 
-  # Hash replica -> pid
-  while (my($key,$value) = each %tablaNodos){
-    my $host = $value->nombre();
-    $pidRep{$value->nombre} = $key;
-  }
+    # Hash replica -> pid
+    while (my($key,$value) = each %tablaNodos){
+        my $host = $value->nombre();
+        $pidRep{$value->nombre} = $key;
+    }
 
-  #   Metodos expuestos por RPC por el coordinador
-  my $methods = {
-    'coordinador.tabla' => \&tabla,
+    #   Metodos expuestos por RPC por el coordinador
+    my $methods = {
+        'coordinador.tabla' => \&tabla,
     'coordinador.clienteCommit' => \&clienteCommit,
-    'coordinador.clientePull' => \&clientePull,
+'coordinador.clientePull' => \&clientePull,
     'coordinador.clienteCheckout' => \&clienteCheckout,
   };
   Frontier::Daemon->new(LocalPort => COORD_RPC_PORT, methods => $methods)
-    or die "No se pudo iniciar el servidor RPC: $!";
+      or die "No se pudo iniciar el servidor RPC: $!";
 }
 
 #   Metodos locales del coordinador
@@ -393,70 +392,90 @@ sub iniciarCoordinador {
 #   Subrutina que avisa por multicast a los nodos del sistema que un 
 #   servidor replica murio
 sub notificarServidorMuerto {
-  my $servidor = shift;
-  print "Notificando la caida del servidor $servidor.\n" if $DEBUG;
-  my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
-  my $datos  = "10,";  #   10 es el codigo para indicar que un servidor murio
-  $datos .= $hostname;
-  $socket->send($datos) || die "No se pudo notificar al grupo: $!";
-  print "Notificacion enviada al grupo multicast\n" if $DEBUG;
-  1;
+    my $servidor = shift;
+    print "Notificando la caida del servidor $servidor.\n" if $DEBUG;
+    my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
+    my $datos  = "10,";  #   10 es el codigo para indicar que un servidor murio
+    $datos .= $hostname;
+    $socket->send($datos) || die "No se pudo notificar al grupo: $!";
+    print "Notificacion enviada al grupo multicast\n" if $DEBUG;
+    1;
 }
 
 #   Subrutina que replica los archivos de un servidor que haya muerto en los demas
 #   nodos del sistema. Debe garantizar balanceo de cargas y tolerancia suficiente
 sub replicarServidor {
-  my $servidor = shift;
-  print "Replicando archivos de $servidor en los demas nodos del sistema.\n" if $DEBUG;
-  1;
+    my $servidor = shift;
+    print "Replicando archivos de $servidor en los demas nodos del sistema.\n" if LOG;
+
+    $pid_muerto = grep {$_->nombre eq $servidor} values %tablaNodos;
+    my $nodo = $tablaNodos{$pid_muerto};
+
+    my @archivos = $nodo->archivos_todos();
+    print "Archivos a replicar\n";
+    print Dumper @archivos;
+    foreach (values %tablaNodos) {
+        my $posible_replica = $_;
+        print "Evaluando a $posible_replica->nombre\n";
+
+        foreach (0..$#archivos) { 
+            my $par = $archivos[$index];
+            my $archivo_aux = $par->[1]->nombre;
+            if ($posible_replica->tiene_archivo($archivo_aux)) {
+                print "Enviando $archivo_aux a $posible_replica->nombre\n";
+                #&send2Rep($usuario, $proyecto, $archivo, $version, @replicas);
+                splice @archivos, $index, 1;
+            }
+        }
+    }
 }
 
 #   Transforma el hash de InfoNodos en formato de listas para transmitirlo
 #   por RPC
 sub fromTabla2Str {
-  my $string = "";
-  foreach (values %tablaNodos) {
-    my $nodo = $_;
-    bless $nodo, 'InfoNodo';
-    $string .= $nodo;
-  }
-  return $string;
+    my $string = "";
+    foreach (values %tablaNodos) {
+        my $nodo = $_;
+        bless $nodo, 'InfoNodo';
+        $string .= $nodo;
+    }
+    return $string;
 }
 
 #   Transforma el hash de listas con la informacion de los nodos del sistema
 #   en un hash de InfoNodo para trabajar localmente con la informacion
 sub fromStr2Tabla {
-  my $tablaStr = shift;
-  my %result;
-  my @arrayIN = split ('&', $tablaStr); 
-  foreach (@arrayIN) {
-    my @attr = split ('\#', $_);
-    my @nep = split (',', shift @attr);
-    my $nombre = shift @nep;
-    my $pid    = shift @nep;
-    my $estado = shift @nep;
-    my $nodo :shared = shared_clone(InfoNodo->new);
-    bless ($nodo, 'InfoNodo');
-    $nodo->nombre($nombre);
-    $nodo->pid($pid);
-    $nodo->estado($estado);
-    #  Agregando archivos
-    foreach (@attr) {
-      my @archivoArray = split (',', $_);
-      my $nombre_archivo = shift @archivoArray;
-      my $archivo = Archivo->new('nombre' => $nombre_archivo);
-      while (@archivoArray > 0) {
-        my $version = shift @archivoArray;
-        my $checksum = shift @archivoArray;
-        $archivo->agregar_version(
-          $version => $checksum,
-        );
-      }
-      $nodo->agregar_archivo($nombre_archivo => $archivo);
+    my $tablaStr = shift;
+    my %result;
+    my @arrayIN = split ('&', $tablaStr); 
+    foreach (@arrayIN) {
+        my @attr = split ('\#', $_);
+        my @nep = split (',', shift @attr);
+        my $nombre = shift @nep;
+        my $pid    = shift @nep;
+        my $estado = shift @nep;
+        my $nodo :shared = shared_clone(InfoNodo->new);
+        bless ($nodo, 'InfoNodo');
+        $nodo->nombre($nombre);
+        $nodo->pid($pid);
+        $nodo->estado($estado);
+        #  Agregando archivos
+        foreach (@attr) {
+            my @archivoArray = split (',', $_);
+            my $nombre_archivo = shift @archivoArray;
+            my $archivo = Archivo->new('nombre' => $nombre_archivo);
+            while (@archivoArray > 0) {
+                my $version = shift @archivoArray;
+                my $checksum = shift @archivoArray;
+                $archivo->agregar_version(
+                    $version => $checksum,
+                );
+            }
+            $nodo->agregar_archivo($nombre_archivo => $archivo);
+        }
+        $result{$pid} = $nodo;
     }
-    $result{$pid} = $nodo;
-  }
-  %result;
+    %result;
 }
 
 #
@@ -510,26 +529,26 @@ sub versionOK{
   $archivo = "$usuario.$proyecto.$archivo";
   my $arch;
 
-  while (my($pid, $rep) = each %tablaNodos) {
+    while (my($pid, $rep) = each %tablaNodos) {
 
-    $arch = $rep->buscar_archivo($archivo); 
-    if (defined($arch)) {
-      my $versionTabla = $arch->contar_versiones();
-      return 0 if ($versionTabla < $version);
-      return 1;
+        $arch = $rep->buscar_archivo($archivo); 
+        if (defined($arch)) {
+            my $versionTabla = $arch->contar_versiones();
+            return 0 if ($versionTabla < $version);
+            return 1;
+        }
     }
-  }
-  return 0;
+    return 0;
 }
 
 sub arreglarRep{
-  my $usuario = shift;
-  my $proyecto = shift;
-  my $archivo = shift;
-  my $version = shift;
-  my @replicas = @_;
-  print "Reenviando archivo a replicas con checksum malo Replicas: @replicas\n" if $DEBUG;
-  &send2rep($usuario,$proyecto,$archivo,$version,@replicas);
+    my $usuario = shift;
+    my $proyecto = shift;
+    my $archivo = shift;
+    my $version = shift;
+    my @replicas = @_;
+    print "Reenviando archivo a replicas con checksum malo Replicas: @replicas\n" if $DEBUG;
+    &send2rep($usuario,$proyecto,$archivo,$version,@replicas);
 }
 
 # Rutina que calcula el checksum de un archivo
@@ -603,22 +622,22 @@ sub validarChecksum {
 
 #
 sub notificarCommit{
-  my $usuario = shift;
-  my $proyecto = shift;
-  my $archivo = shift;
-  my $version = shift;
-  my $checksum = shift;
-  my @reps = @_;
+    my $usuario = shift;
+    my $proyecto = shift;
+    my $archivo = shift;
+    my $version = shift;
+    my $checksum = shift;
+    my @reps = @_;
 
-  print "Notificando commit al grupo multicast\n" if $DEBUG;
-  my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
-  my $datos  = "2,";
-  $datos .= "$usuario.$proyecto.$archivo,";
-  $datos .= $version . ",";
-  $datos .= $checksum . ",";
-  $datos .= "$_," foreach(@reps);
-  $socket->send($datos) || die "No se pudo notificar al grupo: $!";
-  print "Notificacion enviada al grupo multicast\n" if $DEBUG;
+    print "Notificando commit al grupo multicast\n" if $DEBUG;
+    my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
+    my $datos  = "2,";
+    $datos .= "$usuario.$proyecto.$archivo,";
+    $datos .= $version . ",";
+    $datos .= $checksum . ",";
+    $datos .= "$_," foreach(@reps);
+    $socket->send($datos) || die "No se pudo notificar al grupo: $!";
+    print "Notificacion enviada al grupo multicast\n" if $DEBUG;
 }
 
 # Rutina que envia un archivo a la replica
@@ -668,15 +687,15 @@ sub send2rep {
 # $reps: replicas donde se eliminara el archivo
 # $path: path del archivo a eliminar
 sub rmFile{
-  my $path = shift;
-  my @reps = @_;
+    my $path = shift;
+    my @reps = @_;
 
-  foreach(@reps) {
-    print "Eliminando archivo $path de $_\n";
-    my $host = $_;
-    my $sftp = Net::SFTP::Foreign->new(host=>$host, user=> $USER);
-    $sftp->remove($path);
-  }
+    foreach(@reps) {
+        print "Eliminando archivo $path de $_\n";
+        my $host = $_;
+        my $sftp = Net::SFTP::Foreign->new(host=>$host, user=> $USER);
+        $sftp->remove($path);
+    }
 }
 
 # Rutina que recibe un archivo de una replica
@@ -701,67 +720,67 @@ sub getFromRep {
 #   Rutina que busca las replicas que tienen un archivo dado y la 
 #   ultima version disponible 
 sub getRep {
-  my $usuario =shift;
-  my $proyecto = shift;
-  my $archivo = shift;
-  my $version = 0;
-  my @replicas;
-  my $checksum;
+    my $usuario =shift;
+    my $proyecto = shift;
+    my $archivo = shift;
+    my $version = 0;
+    my @replicas;
+    my $checksum;
 
-  print "u $usuario, p $proyecto, a $archivo\n";
-  $archivo = "$usuario.$proyecto.$archivo";
-  print Dumper \%tablaNodos;
-  while (my($pid, $rep) = each %tablaNodos) {
+    print "u $usuario, p $proyecto, a $archivo\n";
+    $archivo = "$usuario.$proyecto.$archivo";
+    print Dumper \%tablaNodos;
+while (my($pid, $rep) = each %tablaNodos) {
     my $arch;
     $arch = $rep->buscar_archivo($archivo);
     if (defined($arch)) {
-      push(@replicas,$rep->nombre());
-      $version = $arch->contar_versiones;
-      $checksum = $arch->get_version($version);
+        push(@replicas,$rep->nombre());
+        $version = $arch->contar_versiones;
+        $checksum = $arch->get_version($version);
     }
 
-  }
-  @replicas = &lowRep unless (@replicas);
-  return ($version,$checksum,@replicas);
+}
+@replicas = &lowRep unless (@replicas);
+return ($version,$checksum,@replicas);
 }
 
 # Rutina que busca las k replicas con menos carga
 #
 sub lowRep {
-  my %cp;
-  my @replicas;
-  while (my($pid, $rep) = each %tablaNodos) {
-    push (@{$cp{$rep->contar_archivos}},$rep->nombre());
-  }  
-  my @cargas = (sort keys %cp);
+    my %cp;
+    my @replicas;
+    while (my($pid, $rep) = each %tablaNodos) {
+        push (@{$cp{$rep->contar_archivos}},$rep->nombre());
+    }  
+    my @cargas = (sort keys %cp);
 
-  my $krep = 0;
-  my $key = shift @cargas;
-  while ($krep < ((2 *$K) + 1)){
-    $key = shift @cargas unless ($cp{$key});
-    push(@replicas, shift @{$cp{$key}});
-    $krep++;
-  }
-  return @replicas;
+    my $krep = 0;
+    my $key = shift @cargas;
+    while ($krep < $K){
+        $key = shift @cargas unless ($cp{$key});
+        push(@replicas, shift @{$cp{$key}});
+        $krep++;
+    }
+    return @replicas;
 }
 
 # Rutina que retorna la ultima version de un archivo
 sub getVersion {
-  my $usuario = shift;
-  my $proyecto = shift;
-  my $archivo = shift;
-  my $version;
-  $archivo = "$usuario.$proyecto.$archivo";
-  while (my($pid, $rep) = each %tablaNodos) {
-    my $arch;
-    $arch = $rep->buscar_archivo($archivo); 
-    if (defined($arch)) {
-      print "Buscando la version del archivo $archivo\n" if $DEBUG;
-      $version = $arch->contar_versiones();
-      last;
+    my $usuario = shift;
+    my $proyecto = shift;
+    my $archivo = shift;
+    my $version;
+    $archivo = "$usuario.$proyecto.$archivo";
+    while (my($pid, $rep) = each %tablaNodos) {
+        my $arch;
+        $arch = $rep->buscar_archivo($archivo); 
+        if (defined($arch)) {
+            print "Buscando la version del archivo $archivo\n" if $DEBUG;
+            $version = $arch->contar_versiones();
+            last;
+        }
     }
-  }
-  return $version;
+    return $version;
 }
 
 ############
@@ -780,11 +799,11 @@ $DEBUG   = 1 if $opt{v};
 
 if (POSIX::isdigit($opt{k} + 0)) {
 
-  $USER    = $opt{u};
-  $DNS_URL = $opt{d};
-  $K       = $opt{k} + 0; 
+    $USER    = $opt{u};
+    $DNS_URL = $opt{d};
+    $K       = $opt{k} + 0; 
 } else { 
-  &uso() 
+    &uso() 
 }
 
 
