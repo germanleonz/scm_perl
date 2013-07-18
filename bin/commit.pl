@@ -48,7 +48,8 @@ sub getCoord {
 sub commit {
     my $archivo = shift;
     my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
-    $sftp->put("$archivo","/tmp/$archivo");
+    $sftp->mkpath("/tmp/$usuario/");
+    $sftp->put("$archivo","/tmp/$usuario/$archivo");
 
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server     = Frontier::Client->new(url => $server_url);

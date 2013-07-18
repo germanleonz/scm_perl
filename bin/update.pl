@@ -46,7 +46,7 @@ sub pull {
     my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
 
     print "Recibiendo archivo $archivo $usuario $coord \n" if DEBUG;
-    $sftp->get("/tmp/$archivo","./$archivo") unless $sftp->error;
+    $sftp->get("/tmp/$suario/$archivo","./$archivo") unless $sftp->error;
 }
 
 sub uso{

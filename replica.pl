@@ -493,14 +493,13 @@ sub pull {
   }else{
     $version = &getVersion($usuario,$proyecto,$archivo);
   }
-  print "Version: $version\n";
   ($checkR,$rep,@arreglar) = &validarChecksum($usuario,$proyecto,$archivo,$version);
   print "$checkR $checkL\n";
   while ($checkR ne $checkL) {
     &getFromRep($usuario,$proyecto,$archivo,$version,$rep);
     $checkL = &checksum($archivo);
   }
-  &arreglarRep($usuario,$proyecto,$archivo,$version,@arreglar) if (@arreglar);
+  &arreglarRep($usuario,$proyecto,$archivo,$version,@arreglar) if (scalar @arreglar);
 }
 
 sub versionOK{
@@ -587,14 +586,16 @@ sub validarChecksum {
   my $moda;
   my @arreglar;
   while(my($check,$rep) = each %checksums) {
-    if ($#modaCheck < $#{$rep}){
-      if ($#modaCheck){
+    if (scalar @modaCheck < scalar @{$rep}){
+      if (scalar @modaCheck){
         push(@arreglar,$_) foreach @modaCheck;
       }
       $moda = $check;
       @modaCheck = @{$rep};
-      print "modaCheck @modaCheck\n";
+    }else{
+        push(@arreglar,$_) foreach @{$rep};
     }
+
   }
   print "Return moda $moda, modaCheck $modaCheck[0]\n";
   return($moda,$modaCheck[0],@arreglar);
@@ -642,7 +643,7 @@ sub send2rep {
     do {
       print "Intent $intentos:";
       print Dumper $sftp->error;
-      $sftp->put("$tmp/$archivo","$raiz/$usuario/$proyecto/$archivo/$version");
+      $sftp->put("$tmp/$usuario/$archivo","$raiz/$usuario/$proyecto/$archivo/$version");
       $intentos--;
     } while ($sftp->error and $intentos > 0);
 
@@ -692,8 +693,8 @@ sub getFromRep {
 
   $version = &getVersion($usuario,$proyecto,$archivo) unless defined($version);
   my $sftp = Net::SFTP::Foreign->new(host=>$rep, user=>'javier');
-  print "Get from Rep  $rep $raiz/$usuario/$proyecto/$archivo/$version\n";
-  $sftp->get("$raiz/$usuario/$proyecto/$archivo/$version","$tmp/$archivo");
+  print "Get from Rep  $rep $raiz/$usuario/$proyecto/$archivo/$usuario/$version\n" if $DEBUG;
+  $sftp->get("$raiz/$usuario/$proyecto/$archivo/$version","$tmp/$usuario/$archivo");
 
 }
 
@@ -736,7 +737,7 @@ sub lowRep {
 
   my $krep = 0;
   my $key = shift @cargas;
-  while ($krep < $K){
+  while ($krep < ((2 *$K) + 1)){
     $key = shift @cargas unless ($cp{$key});
     push(@replicas, shift @{$cp{$key}});
     $krep++;
@@ -774,7 +775,7 @@ my %opt;
 
 getopts("$opt_string", \%opt) or &uso();
 
-&uso() if $opt{h} or ( $#ARGV < 6 and $#ARGV > 7 );
+&uso() if $opt{h} or ( scalar @ARGV < 6 and scalar @ARGV > 7 );
 $DEBUG   = 1 if $opt{v};
 
 if (POSIX::isdigit($opt{k} + 0)) {
