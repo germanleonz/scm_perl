@@ -147,9 +147,9 @@ sub escucharRPC {
     #   Metodos expuestos por RPC por el coordinador
     my $methods = {
         'rep.checksum' => \&checksum,
-};
-Frontier::Daemon->new(LocalPort => REP_RPC_PORT, methods => $methods)
-    or die "No se pudo iniciar el RPC general: $!";
+    };
+        Frontier::Daemon->new(LocalPort => REP_RPC_PORT, methods => $methods)
+        or die "No se pudo iniciar el RPC general: $!";
 }
 
 #   Esta rutina escucha multicast y dependiendo del codigo que reciba
