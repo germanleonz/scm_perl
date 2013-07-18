@@ -26,7 +26,6 @@ use POSIX ();
 use Archivo;
 use InfoNodo;
 
-use constant K              => 2; 
 use constant LOG            => 1;
 use constant DEBUG          => 1;
 use constant MC_DESTINATION => '226.1.1.4:2000';
