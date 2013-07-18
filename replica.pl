@@ -238,6 +238,7 @@ sub agregarServidor {
 # Rutina que crea el directorio raiz
 sub crearRaiz{
     mkdir $raiz;
+    chmod(0777, $raiz) or die "Couldn't chmod $raiz: $!";
 }
 # Rutina que borra todos los archivos almacenados en la replica
 sub wipe {
@@ -404,31 +405,31 @@ sub notificarServidorMuerto {
 
 #   Subrutina que replica los archivos de un servidor que haya muerto en los demas
 #   nodos del sistema. Debe garantizar balanceo de cargas y tolerancia suficiente
-sub replicarServidor {
-    my $servidor = shift;
-    print "Replicando archivos de $servidor en los demas nodos del sistema.\n" if LOG;
-
-    $pid_muerto = grep {$_->nombre eq $servidor} values %tablaNodos;
-    my $nodo = $tablaNodos{$pid_muerto};
-
-    my @archivos = $nodo->archivos_todos();
-    print "Archivos a replicar\n";
-    print Dumper @archivos;
-    foreach (values %tablaNodos) {
-        my $posible_replica = $_;
-        print "Evaluando a $posible_replica->nombre\n";
-
-        foreach (0..$#archivos) { 
-            my $par = $archivos[$index];
-            my $archivo_aux = $par->[1]->nombre;
-            if ($posible_replica->tiene_archivo($archivo_aux)) {
-                print "Enviando $archivo_aux a $posible_replica->nombre\n";
-                #&send2Rep($usuario, $proyecto, $archivo, $version, @replicas);
-                splice @archivos, $index, 1;
-            }
-        }
-    }
-}
+#sub replicarServidor {
+#    my $servidor = shift;
+#    print "Replicando archivos de $servidor en los demas nodos del sistema.\n" if LOG;
+#
+#    my $pid_muerto = grep {$_->nombre eq $servidor} values %tablaNodos;
+#    my $nodo = $tablaNodos{$pid_muerto};
+#
+#    my @archivos = $nodo->archivos_todos();
+#    print "Archivos a replicar\n";
+#    print Dumper @archivos;
+#    foreach (values %tablaNodos) {
+#        my $posible_replica = $_;
+#        print "Evaluando a $posible_replica->nombre\n";
+#
+#        foreach (0..$#archivos) { 
+#            my $par = $archivos[$index];
+#            my $archivo_aux = $par->[1]->nombre;
+#            if ($posible_replica->tiene_archivo($archivo_aux)) {
+#                print "Enviando $archivo_aux a $posible_replica->nombre\n";
+#                #&send2Rep($usuario, $proyecto, $archivo, $version, @replicas);
+#                splice @archivos, $index, 1;
+#            }
+#        }
+#    }
+#}
 
 #   Transforma el hash de InfoNodos en formato de listas para transmitirlo
 #   por RPC
@@ -656,7 +657,9 @@ sub send2rep {
     print "Enviando $archivo a $_\n";
     my $host = $_;
     my $sftp = Net::SFTP::Foreign->new(host=>$host, user=> $USER);
+    my $attrs;
     $sftp->mkpath("$raiz/$usuario/$proyecto/$archivo");
+    $sftp->chmod("$raiz/$usuario/$proyecto/$archivo", 0777);
     #   SE INTENTA ALMACENAR EL ARCHIVO EN LA REPLICA 5 VECES
     my $intentos = 5;
     do {
@@ -756,7 +759,7 @@ sub lowRep {
 
     my $krep = 0;
     my $key = shift @cargas;
-    while ($krep < $K){
+    while ($krep < ((2 * $K) + 1)){
         $key = shift @cargas unless ($cp{$key});
         push(@replicas, shift @{$cp{$key}});
         $krep++;
@@ -810,6 +813,7 @@ if (POSIX::isdigit($opt{k} + 0)) {
 #   Consultar al dns quien es el coordinador
 $coord = &getCoord();
 mkdir $raiz;
+chmod(0777, $raiz) or die "Couldn't chmod $raiz: $!";
 
 threads->new(\&escucharRPC)->detach;
 
