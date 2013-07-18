@@ -465,7 +465,7 @@ sub commit {
   my $usuario  = shift;
   my $proyecto = shift;
   my $archivo = shift;
-  my $checksum = &checksum($archivo);
+  my $checksum = &checksum($usuario,$archivo);
   my ($version, $checksumL, @replicas) = &getRep($usuario,$proyecto,$archivo);
   print "Realizando commit del $archivo version: $version usuario: $usuario 
   proyecto: $proyecto Replicas: @replicas\n" if LOG; 
@@ -497,7 +497,7 @@ sub pull {
   print "$checkR $checkL\n";
   while ($checkR ne $checkL) {
     &getFromRep($usuario,$proyecto,$archivo,$version,$rep);
-    $checkL = &checksum($archivo);
+    $checkL = &checksum($usuario,$archivo);
   }
   &arreglarRep($usuario,$proyecto,$archivo,$version,@arreglar) if (scalar @arreglar);
 }
@@ -534,15 +534,15 @@ sub arreglarRep{
 
 # Rutina que calcula el checksum de un archivo
 sub checksum {
+  my $usuario = shift;
   my $archivo = shift;
   my $path = shift;
-  my $usuario = shift;
   my $proyecto = shift;
   my $checksum;
   my $version = shift;
 
   print "a $archivo p $path u $usuario pr $proyecto  v $version\n";
-  $path = $tmp unless defined ($path);
+  $path = "$tmp" unless defined ($path);
   $archivo = "$usuario/$proyecto/$archivo" if defined ($path);
   $version = "/$version" if defined($version);
   eval {
@@ -574,7 +574,7 @@ sub validarChecksum {
   foreach(@replicas){
     my $rep_url = "http://$_:" . REP_RPC_PORT . '/RPC2';
     my $rep = Frontier::Client->new(url => $rep_url);
-    my $result = $rep->call('rep.checksum',$archivo,$path,$usuario,$proyecto,$version);
+    my $result = $rep->call('rep.checksum',$usuario,$archivo,$path,$proyecto,$version);
     print "Result $result\n";
     push (@{$checksums{$result}},$_);
   }
@@ -658,7 +658,7 @@ sub send2rep {
   }
   #   NOTIFICAR A TODO EL MUNDO EL ENVIO DE ARCHIVOS
   #   PARA QUE ACTUALICEN SU TABLA
-  my $checksum = &checksum($archivo);
+  my $checksum = &checksum($usuario,$archivo);
   print "Notificando commit a @pids\n" if $DEBUG;
   &notificarCommit($usuario,$proyecto,$archivo,$version,$checksum,@pids);
 }
