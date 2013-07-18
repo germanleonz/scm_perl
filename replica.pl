@@ -396,7 +396,7 @@ sub notificarServidorMuerto {
     print "Notificando la caida del servidor $servidor.\n" if $DEBUG;
     my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
     my $datos  = "10,";  #   10 es el codigo para indicar que un servidor murio
-    $datos .= $hostname;
+    $datos .= $servidor;
     $socket->send($datos) || die "No se pudo notificar al grupo: $!";
     print "Notificacion enviada al grupo multicast\n" if $DEBUG;
     1;
@@ -408,23 +408,50 @@ sub replicarServidor {
     my $servidor = shift;
     print "Replicando archivos de $servidor en los demas nodos del sistema.\n" if LOG;
 
-    $pid_muerto = grep {$_->nombre eq $servidor} values %tablaNodos;
+    my $pid_muerto = $pidRep{$servidor};
     my $nodo = $tablaNodos{$pid_muerto};
 
     my @archivos = $nodo->archivos_todos();
     print "Archivos a replicar\n";
     print Dumper @archivos;
-    foreach (values %tablaNodos) {
-        my $posible_replica = $_;
-        print "Evaluando a $posible_replica->nombre\n";
 
-        foreach (0..$#archivos) { 
-            my $par = $archivos[$index];
-            my $archivo_aux = $par->[1]->nombre;
-            if ($posible_replica->tiene_archivo($archivo_aux)) {
-                print "Enviando $archivo_aux a $posible_replica->nombre\n";
-                #&send2Rep($usuario, $proyecto, $archivo, $version, @replicas);
-                splice @archivos, $index, 1;
+    #   PENDIENTE ITERAR SOBRE LOS NODOS ORDENADOS POR LA
+    #   CANTIDAD DE ARCHIVOS QUE TIENENE
+
+    ARCHIVOS: while (scalar @archivos) {
+        NODOS: foreach (values %tablaNodos) {
+            my $posible_replica = $_;
+            next if $posible_replica->nombre eq $servidor;
+            print "Evaluando a ";
+            print Dumper $posible_replica->nombre;
+
+            for my $i (0..$#archivos) { 
+                my $par = $archivos[$i];
+                my $archivo = $par->[1];
+                my $archivo_aux = $archivo->nombre;
+                print "Intentando enviar $archivo_aux a ";
+                print Dumper $posible_replica->nombre;
+                unless ($posible_replica->tiene_archivo($archivo_aux)) {
+                    print "Procesando $archivo_aux para\n";
+                    my @aux_archivo = split ('\.', $archivo_aux);
+                    my $usuario     = shift @aux_archivo;
+                    my $proyecto    = shift @aux_archivo;
+                    my $version     = $archivo->contar_versiones;
+
+                    my $extraer = "$usuario.$proyecto.";
+                    my $length  = length $extraer;
+                    my $nombre  = substr($archivo_aux, $length);
+                    my @replicas;
+                    push @replicas, $posible_replica->nombre;
+                    print "Enviar arc $nombre us $usuario v $version n";
+                    print "proy $proyecto al nodo @replicas\n";
+                    &send2rep($usuario, $proyecto, $nombre, $version, @replicas);
+                    splice @archivos, $i, 1;
+                    print "Ahora quedan estos archivos ";
+                    print Dumper @archivos;
+                    last ARCHIVOS if scalar @archivos == 0;
+                    next NODOS;
+                }
             }
         }
     }
@@ -483,7 +510,7 @@ sub fromStr2Tabla {
 sub commit {
     my $usuario  = shift;
     my $proyecto = shift;
-    my $archivo = shift;
+    my $archivo  = shift;
     my $checksum = &checksum($archivo);
     my ($version, $checksumL, @replicas) = &getRep($usuario,$proyecto,$archivo);
     print "Realizando commit del $archivo version: $version usuario: $usuario 
@@ -644,11 +671,11 @@ sub notificarCommit{
 # @servidores: lista de los servidores a los que se enviara el archivo
 # $archivo: achivo que se enviara
 sub send2rep {
-    my $usuario = shift;
+    my $usuario  = shift;
     my $proyecto = shift;
-    my $archivo = shift;
-    my $version = shift;
-    my @reps = @_;
+    my $archivo  = shift;
+    my $version  = shift;
+    my @reps     = @_;
     my $path; 
     my @pids;
     foreach(@reps) {
@@ -729,18 +756,18 @@ sub getRep {
     print "u $usuario, p $proyecto, a $archivo\n";
     $archivo = "$usuario.$proyecto.$archivo";
     print Dumper \%tablaNodos;
-while (my($pid, $rep) = each %tablaNodos) {
-    my $arch;
-    $arch = $rep->buscar_archivo($archivo);
-    if (defined($arch)) {
-        push(@replicas,$rep->nombre());
-        $version = $arch->contar_versiones;
-        $checksum = $arch->get_version($version);
-    }
+    while (my($pid, $rep) = each %tablaNodos) {
+        my $arch;
+        $arch = $rep->buscar_archivo($archivo);
+        if (defined($arch)) {
+            push(@replicas,$rep->nombre());
+            $version = $arch->contar_versiones;
+            $checksum = $arch->get_version($version);
+        }
 
-}
-@replicas = &lowRep unless (@replicas);
-return ($version,$checksum,@replicas);
+    }
+    @replicas = &lowRep unless (@replicas);
+    return ($version,$checksum,@replicas);
 }
 
 # Rutina que busca las k replicas con menos carga
