@@ -14,9 +14,10 @@ use constant COORD_RPC_PORT => '8081';
 my $coord;
 my $usuario;
 my $nombre_proyecto;
+my $invitado;
 
 # Main
-my $opt_string = 'h:u:p:';
+my $opt_string = 'h:u:p:i:';
 my %opt;
 
 getopts("$opt_string", \%opt) or &uso();
@@ -24,16 +25,10 @@ getopts("$opt_string", \%opt) or &uso();
 $usuario = $opt{u} || `whoami`;
 chomp($usuario);
 $nombre_proyecto = $opt{p};
+$invitado = $opt{i};
 
-
-if (-d $nombre_proyecto) {
-    print "Abortando. El directorio ya existe localmente. Podrian haber conflictos\n";
-} else {
-    $coord = &getCoord;
-    print "usuario: $usuario\n";
-    print "nombre proyecto: $nombre_proyecto\n";
-    &checkout($nombre_proyecto);
-}
+$coord = &getCoord();
+&share();
 
 #
 sub getCoord {
@@ -47,21 +42,14 @@ sub getCoord {
 }
 
 #   Solicita al sistema la realizacion de un commit
-sub checkout {
+sub share {
     my $nombre_proyecto = shift;
 
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
-    my $result = $server->call('coordinador.clienteCheckout', $usuario, $nombre_proyecto);
+    my $result = $server->call('coordinador.clienteShare', $usuario, $nombre_proyecto);
 
-    my $nombres_aux = $result->{'clienteCheckout'};
-    my @nombres_archivos = split('&',$nombres_aux);
-    print "$_\n" foreach(@nombres_archivos);
-    mkdir $nombre_proyecto;
-    my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
-    foreach (@nombres_archivos) {
-        $sftp->get("/tmp/$usuario/$_", "$nombre_proyecto/$_") if $sftp;
-    }
+    my $nombres_aux = $result->{'clienteShare'};
 }
 
 #
@@ -74,6 +62,7 @@ sub uso {
     -h          : Ayuda
     -u usuario  : Usuario
     -p proyecto : Proyecto
+    -i invitado : Usuario a compartir
 
     ejemplo: $0 -u usuario -p proyecto
 EOF
