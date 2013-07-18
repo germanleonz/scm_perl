@@ -397,7 +397,7 @@ sub notificarServidorMuerto {
     print "Notificando la caida del servidor $servidor.\n" if $DEBUG;
     my $socket = IO::Socket::Multicast->new(PeerAddr=>MC_DESTINATION);
     my $datos  = "10,";  #   10 es el codigo para indicar que un servidor murio
-    $datos .= $hostname;
+    $datos .= $servidor;
     $socket->send($datos) || die "No se pudo notificar al grupo: $!";
     print "Notificacion enviada al grupo multicast\n" if $DEBUG;
     1;
@@ -482,18 +482,18 @@ sub fromStr2Tabla {
 #
 #
 sub commit {
-  my $usuario  = shift;
-  my $proyecto = shift;
-  my $archivo = shift;
-  my $checksum = &checksum($usuario,$archivo);
-  my ($version, $checksumL, @replicas) = &getRep($usuario,$proyecto,$archivo);
-  print "Realizando commit del $archivo version: $version usuario: $usuario 
-  proyecto: $proyecto Replicas: @replicas\n" if LOG; 
-  if ($checksum ne $checksumL) {
-    return &send2rep($usuario,$proyecto,$archivo,$version+1,@replicas);
-  }else{
-    return 1;
-  }
+    my $usuario  = shift;
+    my $proyecto = shift;
+    my $archivo  = shift;
+    my $checksum = &checksum($archivo);
+    my ($version, $checksumL, @replicas) = &getRep($usuario,$proyecto,$archivo);
+    print "Realizando commit del $archivo version: $version usuario: $usuario 
+    proyecto: $proyecto Replicas: @replicas\n" if LOG; 
+    if ($checksum ne $checksumL) {
+        return &send2rep($usuario,$proyecto,$archivo,$version+1,@replicas);
+    } else {
+        return 1;
+    }
 }
 
 #
@@ -733,18 +733,18 @@ sub getRep {
     print "u $usuario, p $proyecto, a $archivo\n";
     $archivo = "$usuario.$proyecto.$archivo";
     print Dumper \%tablaNodos;
-while (my($pid, $rep) = each %tablaNodos) {
-    my $arch;
-    $arch = $rep->buscar_archivo($archivo);
-    if (defined($arch)) {
-        push(@replicas,$rep->nombre());
-        $version = $arch->contar_versiones;
-        $checksum = $arch->get_version($version);
-    }
+    while (my($pid, $rep) = each %tablaNodos) {
+        my $arch;
+        $arch = $rep->buscar_archivo($archivo);
+        if (defined($arch)) {
+            push(@replicas,$rep->nombre());
+            $version = $arch->contar_versiones;
+            $checksum = $arch->get_version($version);
+        }
 
-}
-@replicas = &lowRep unless (@replicas);
-return ($version,$checksum,@replicas);
+    }
+    @replicas = &lowRep unless (@replicas);
+    return ($version,$checksum,@replicas);
 }
 
 # Rutina que busca las k replicas con menos carga
