@@ -72,4 +72,22 @@ sub uso {
     ejemplo: $0 -f archivo.txt
 EOF
         exit;
-}
+    }
+
+# Main
+
+my $opt_string = 'hf:u:p:';
+
+getopts( "$opt_string", \%opt ) or &uso();
+&uso() if $opt{h};
+$usuario = $opt{u};
+$archivo = $opt{f};
+$proyecto = $opt{p};
+
+$coord = &getCoord;
+&commit($archivo);
+
+
+
+
+  

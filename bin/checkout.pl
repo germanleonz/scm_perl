@@ -54,12 +54,13 @@ sub checkout {
     my $server = Frontier::Client->new(url => $server_url);
     my $result = $server->call('coordinador.clienteCheckout', $usuario, $nombre_proyecto);
 
-    my @nombres_archivos = $result->{'clienteCheckout'};
-
+    my $nombres_aux = $result->{'clienteCheckout'};
+    my @nombres_archivos = split('&',$nombres_aux);
+    print "$_\n" foreach(@nombres_archivos);
     mkdir $nombre_proyecto;
     my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
     foreach (@nombres_archivos) {
-        $sftp->get("$nombre_proyecto/$_", "/tmp/$_") if $sftp;
+        $sftp->get("/tmp/$_", "$nombre_proyecto/$_") if $sftp;
     }
 }
 

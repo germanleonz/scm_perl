@@ -12,7 +12,7 @@ use constant COORD_RPC_PORT => '8081';
 
 my $coord;
 my $archivo;
-my $usuarios;
+my $usuario;
 my $proyecto;
 
 # Main
@@ -26,8 +26,6 @@ $proyecto = $opt{p};
 $usuario  = $opt{u} || `whoami`;
 chomp($usuario);
 
-$coord = &getCoord;
-&commit($archivo);
 
 sub getCoord {
     print "Conectando ...\n" if DEBUG;
@@ -42,12 +40,13 @@ sub getCoord {
 sub pull {
     my $archivo    = shift;
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
-    my $server     = Frontier::Client->new(url => $server_url);
-    my $result     = $server->call('coordinador.clientePull', $usuario, $proyecto, $archivo);
-    my $mensaje    = $result->{'clientePull'};
-    my $sftp       = Net::SFTP::Foreign->new(host => $coord, user => $usuario);
-    $sftp->get("$archivo", "/tmp/$archivo") if $sftp;
-    print $mensaje . "\n";
+    my $server = Frontier::Client->new(url => $server_url);
+    my $result = $server->call('coordinador.clientePull',$usuario,$proyecto,$archivo);
+    my $mensaje = $result->{'clientePull'};
+    my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
+
+    print "Recibiendo archivo $archivo $usuario $coord \n" if DEBUG;
+    $sftp->get("/tmp/$archivo","./$archivo") unless $sftp->error;
 }
 
 sub uso{
@@ -64,4 +63,22 @@ sub uso{
     ejemplo: $0 -f arhcivo.txt
 EOF
         exit;
-}
+    }
+
+# Main
+
+my $opt_string = 'hf:u:p:';
+
+getopts( "$opt_string", \%opt ) or &uso();
+&uso() if $opt{h};
+$usuario = $opt{u};
+$archivo = $opt{f};
+$proyecto = $opt{p};
+
+$coord = &getCoord;
+&pull($archivo);
+
+
+
+
+  
