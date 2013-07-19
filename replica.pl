@@ -491,7 +491,7 @@ sub fromStr2Tabla {
         foreach (@attr) {
             my @archivoArray = split (',', $_);
             my $nombre_archivo = shift @archivoArray;
-            my $archivo = Archivo->new('nombre' => $nombre_archivo);
+            my $archivo = shared_clone(Archivo->new('nombre' => $nombre_archivo));
             while (@archivoArray > 0) {
                 my $version = shift @archivoArray;
                 my $checksum = shift @archivoArray;
@@ -782,11 +782,13 @@ sub lowRep {
         push (@{$cp{$rep->contar_archivos}},$rep->nombre());
     }  
     my @cargas = (sort keys %cp);
+    print "Imprimiendo cargas @cargas\n";
+    print Dumper \%cp;
 
     my $krep = 0;
     my $key = shift @cargas;
     while ($krep < ((2 * $K) + 1)){
-        $key = shift @cargas unless ($cp{$key});
+        $key = shift @cargas unless (scalar @{$cp{$key}});
         push(@replicas, shift @{$cp{$key}});
         $krep++;
     }
