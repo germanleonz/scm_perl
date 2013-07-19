@@ -5,7 +5,6 @@ use utf8;
 use strict;
 
 use lib qw(.);
-#use lib qw(./lib/lib/perl5/site_perl/5.12.4);
 use Frontier::Daemon;
 use Thread::Semaphore;
 
