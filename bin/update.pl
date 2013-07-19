@@ -44,10 +44,14 @@ sub pull {
     my $server = Frontier::Client->new(url => $server_url);
     my $result = $server->call('coordinador.clientePull',$usuario,$proyecto,$archivo);
     my $mensaje = $result->{'clientePull'};
-    print "Recibiendo archivo $archivo $usuario $coord\n" if DEBUG;
-    my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
-    print "Path /tmp/$usuario/$archivo\n";
-    $sftp->get("/tmp/$usuario/$archivo","$archivo") unless $sftp->error;
+    if ($mensaje eq "Archivo $archivo actualizado\n") {
+        my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
+
+        print "Recibiendo archivo $archivo $usuario $coord \n" if DEBUG;
+        $sftp->get("/tmp/$archivo","./$archivo") unless $sftp->error;
+    }
+
+    print $mensaje;
 }
 
 sub uso{
