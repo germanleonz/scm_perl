@@ -48,7 +48,7 @@ EOF
 }
 elsif ($comando eq 'checkout') {
   &usoCheckout unless exists $opt{p};
-  &checkout($archivo);
+  &checkout($proyecto);
 }
 elsif ($comando eq 'update') {
   if (!exists $opt{f}){
@@ -108,22 +108,15 @@ sub checkout {
 }
 sub pull {
     my $archivo    = shift;
-    print "Usuario $usuario\n";
     my $server_url = "http://$coord:" . COORD_RPC_PORT . '/RPC2';
     my $server = Frontier::Client->new(url => $server_url);
     my $result = $server->call('coordinador.clientePull',$usuario,$proyecto,$archivo);
     my $mensaje = $result->{'clientePull'};
-    if ($mensaje eq "Archivo $archivo actualizado\n") {
-        print "Recibiendo archivo $archivo $usuario $coord \n" if DEBUG;
-        my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
-        print "Path /tmp/$usuario/$archivo\n";
-        print Dumper $sftp->error;
-        $sftp->get("/tmp/$archivo","./$archivo") unless $sftp->error;
-    }
-
+    print "Recibiendo archivo $archivo $usuario $coord\n" if DEBUG;
+    my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
+    $sftp->get("/tmp/$usuario/$archivo","$archivo") unless $sftp->error;
     print $mensaje;
 }
-
 
 sub usoUpdate {
     print STDERR << "EOF";
