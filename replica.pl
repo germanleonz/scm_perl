@@ -792,7 +792,7 @@ sub getFromRep {
   my $rep = shift;
 
   $version = &getVersion($usuario,$proyecto,$archivo) unless defined($version);
-  my $sftp = Net::SFTP::Foreign->new(host=>$rep, user=>'javier');
+  my $sftp = Net::SFTP::Foreign->new(host=>$rep, user=>$USER);
   print "Get from Rep  $rep $raiz/$usuario/$proyecto/$archivo/$usuario/$version\n" if $DEBUG;
   $sftp->get("$raiz/$usuario/$proyecto/$archivo/$version","$tmp/$usuario/$archivo");
 
