@@ -879,6 +879,13 @@ sub getVersion {
     return $version;
 }
 
+sub uso{
+  print STDERR << "EOF";
+  uso: $0 [-d dns] [-k k tolerante] [-u usuario] [-v verbose]
+EOF
+  exit;
+}
+
 ############
 #   Main   #
 ############
