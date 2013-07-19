@@ -58,6 +58,8 @@ chomp($hostname);
 #   Subrutinas propias de todos los servidores replica
 #
 
+#   Esta rutina consulta al DNS para saber quien es el coordinador actual
+#
 sub getCoord {
     print "Contactando al DNS para saber el estado del coordinador...\n" if $DEBUG;
     my $server_url = "http://$DNS_URL:" . DNS_PORT . "/RPC2";
@@ -70,6 +72,7 @@ sub getCoord {
     return $aux;
 }
 
+#   Esta rutina actualiza el coordinador en el servidor DNS
 #
 sub setCoord {
     print "Cambiando de coordinador...\n" if $DEBUG;
@@ -243,7 +246,7 @@ sub crearRaiz{
 }
 # Rutina que borra todos los archivos almacenados en la replica
 sub wipe {
-    system("rm -r $raiz/*");
+    system("rm -r $raiz");
     &crearRaiz();
 }
 
@@ -336,7 +339,7 @@ sub clienteCommit {
     }
 }
 
-#
+# Metodo RPC que ofrece el coordinador para realizar un update
 sub clientePull {
     my $usuario = shift;
     my $proyecto = shift;
@@ -346,6 +349,7 @@ sub clientePull {
     return {'clientePull' => $message};
 }
 
+# Metodo RPC que ofrece el coordinador para realizar un checkout
 sub clienteCheckout {
     my $usuario = shift;
     my $nombre_proyecto = shift;
@@ -507,7 +511,7 @@ sub fromStr2Tabla {
     %result;
 }
 
-#
+#   Esta rutina realiza la replicación del archivo en los 2K + 1 servidores
 #
 sub commit {
     my $usuario  = shift;
@@ -524,7 +528,9 @@ sub commit {
     }
 }
 
-#
+#   Esta rutina retorna el archivo solicitado, validando los checksums del mismo
+#   con todas las replicas que lo poseen y arreglando los archivos que contienen
+#   errores en las replicas donde se encuentra.
 sub pull {
     my $usuario  = shift;
     my $proyecto = shift;
@@ -629,8 +635,8 @@ sub archivoOK{
     return 0;
 }
 
-
-
+#
+#   Esta rutina reenvia un archivo las replicas que lo contienen con errores.
 sub arreglarRep{
     my $usuario = shift;
     my $proyecto = shift;
@@ -650,19 +656,16 @@ sub checksum {
   my $checksum;
   my $version = shift;
 
-  print "a $archivo p $path u $usuario pr $proyecto  v $version\n";
   $path = "$tmp" unless defined ($path);
   $archivo = "$usuario/$proyecto/$archivo" if defined ($path);
   $version = "/$version" if defined($version);
   eval {
-    print " Path $path$archivo$version\n";
     open(FILE, "$path$archivo$version") or die "No se pudo encontrar el archivo: $archivo\n";
     my $ctx = Digest::MD5->new;
     $ctx->addfile(*FILE);
     $checksum = $ctx->hexdigest;
     close(FILE);
   }; 
-  print "checksum $checksum\n";
   return $checksum;
 }
 
@@ -710,7 +713,7 @@ sub validarChecksum {
   return($moda,$modaCheck[0],@arreglar);
 }
 
-#
+#   Esta rutina notifica a todos los servidores que se realizóun commit
 sub notificarCommit{
     my $usuario = shift;
     my $proyecto = shift;
