@@ -534,8 +534,6 @@ sub pull {
     my $checkR;
     my @arreglar;
     my $rep;
-    print "Pull:  usuario $usuario, proyecto $proyecto, archivo $archivo, 
-    version $version\n" if LOG;
     # if (defined($version)) {
     #print "error\n" unless (&versionOK($usuario,$proyecto,$archivo,$version));
     #}else{
@@ -543,12 +541,14 @@ sub pull {
     #}
 
     $version = &getVersion($usuario,$proyecto,$archivo) if (!defined($version));
+    print "Pull:  usuario $usuario, proyecto $proyecto, archivo $archivo, 
+    version $version\n" if LOG;
     my $val = (&versionOK($usuario,$proyecto,$archivo,$version));
     switch ($val) {
-        case 0 { return "Version $version: inexistente\n" }
-        case 2 { return "Proyecto $proyecto: inexistente\n" }
-        case 3 { return "Usuario $usuario: inexistente\n" }
-        case 4 { return "Archivo $archivo: inexistente\n" }
+        case 0 { return "Error: Version $version no existe\n" }
+        case 2 { return "Error: Proyecto $proyecto no existe\n" }
+        case 3 { return "Error: Usuario $usuario no existe\n" }
+        case 4 { return "Error: Archivo $archivo no existe\n" }
     }
     ($checkR,$rep,@arreglar) = &validarChecksum($usuario,$proyecto,$archivo,$version);
     print "$checkR $checkL\n";
@@ -557,6 +557,8 @@ sub pull {
         $checkL = &checksum($usuario,$archivo);
     }
     &arreglarRep($usuario,$proyecto,$archivo,$version,@arreglar) if (scalar @arreglar);
+
+    return "Archivo $archivo actualizado\n";
 }
 
 sub versionOK{
@@ -609,11 +611,19 @@ sub usuarioOK{
 
 sub archivoOK{
     my $archivo = shift;
+    my @archivo_aux = split('\.', $archivo);
+    shift @archivo_aux;
+    shift @archivo_aux;
+    $archivo = join('.', @archivo_aux);
 
+    print Dumper \%tablaNodos;
     while (my($pid, $rep) = each %tablaNodos) {
         foreach my $pair ($rep->archivos_todos) {
-           my @aux = split('\.',$pair->[0]);
-           return 1 if ($archivo eq $aux[2]);
+            my @aux = split('\.',$pair->[0]);
+            shift @aux;
+            shift @aux; 
+            my $str = join('.',@aux);
+            return 1 if ($archivo eq $str);
         }
     }
     return 0;
