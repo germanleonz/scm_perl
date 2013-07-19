@@ -1,4 +1,6 @@
 #!/usr/bin/perl
+#   Clase que representa un archivo en el sistema. Consisten en un nombre
+#   y un map de versiones a checksums MD5.
 
 package Archivo;
 use utf8;

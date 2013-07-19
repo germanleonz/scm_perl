@@ -1,4 +1,8 @@
 #!/usr/bin/perl
+#   Clase que representa la informacion de un nodo del sistema. Esta incluye
+#   un nombre de host, pid del proceso que corre la replica, un contador que
+#   representa el estado del servidor y un hash con la informacion de los
+#   archivos que maneja dicho nodo
 
 package InfoNodo;
 use utf8;

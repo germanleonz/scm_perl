@@ -5,6 +5,7 @@ use strict;
 use Getopt::Std;
 use Frontier::Client;
 use Net::SFTP::Foreign;
+use Data::Dumper;
 use constant LOG            => 1;
 use constant DEBUG          => 1;
 use constant MC_DESTINATION => '226.1.1.4:2000';
@@ -58,7 +59,7 @@ EOF
   }
   &usoUptdate unless exists $opt{p};
 
-  &update($archivo);
+  &pull($archivo);
 }
 
 #
@@ -105,7 +106,6 @@ sub checkout {
         $sftp->get("/tmp/$usuario/$_", "$nombre_proyecto/$_") if $sftp;
     }
 }
-
 sub pull {
     my $archivo    = shift;
     print "Usuario $usuario\n";
@@ -113,11 +113,17 @@ sub pull {
     my $server = Frontier::Client->new(url => $server_url);
     my $result = $server->call('coordinador.clientePull',$usuario,$proyecto,$archivo);
     my $mensaje = $result->{'clientePull'};
-    print "Recibiendo archivo $archivo $usuario $coord\n" if DEBUG;
-    my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
-    print "Path /tmp/$usuario/$archivo\n";
-    $sftp->get("/tmp/$usuario/$archivo","$archivo") unless $sftp->error;
+    if ($mensaje eq "Archivo $archivo actualizado\n") {
+        print "Recibiendo archivo $archivo $usuario $coord \n" if DEBUG;
+        my $sftp = Net::SFTP::Foreign->new(host=>$coord, user=>$usuario);
+        print "Path /tmp/$usuario/$archivo\n";
+        print Dumper $sftp->error;
+        $sftp->get("/tmp/$archivo","./$archivo") unless $sftp->error;
+    }
+
+    print $mensaje;
 }
+
 
 sub usoUpdate {
     print STDERR << "EOF";

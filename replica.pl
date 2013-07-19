@@ -11,6 +11,7 @@ use strict;
 use threads;
 use threads::shared;
 
+use Switch;
 use Data::Dumper;
 use Digest::MD5;
 use Frontier::Client;
@@ -344,8 +345,8 @@ sub clientePull {
     my $proyecto = shift;
     my $archivo = shift;
     my $version = shift;
-    &pull($usuario,$proyecto,$archivo,$version);
-    return {'clientePull' => 1};
+    my $message = &pull($usuario,$proyecto,$archivo,$version);
+    return {'clientePull' => $message};
 }
 
 # Metodo RPC que ofrece el coordinador para realizar un checkout
@@ -531,28 +532,39 @@ sub commit {
 #   con todas las replicas que lo poseen y arreglando los archivos que contienen
 #   errores en las replicas donde se encuentra.
 sub pull {
-  my $usuario  = shift;
-  my $proyecto = shift;
-  my $archivo  = shift;
-  my $version  = shift;
-  my $checkL;
-  my $checkR;
-  my @arreglar;
-  my $rep;
-  print "Pull:  usuario $usuario, proyecto $proyecto, archivo $archivo, 
-  version $version\n" if LOG;
-  if (defined($version)) {
-    print "error\n" unless (&versionOK($usuario,$proyecto,$archivo,$version));
-  }else{
-    $version = &getVersion($usuario,$proyecto,$archivo);
-  }
-  ($checkR,$rep,@arreglar) = &validarChecksum($usuario,$proyecto,$archivo,$version);
-  print "$checkR $checkL\n";
-  while ($checkR ne $checkL) {
-    &getFromRep($usuario,$proyecto,$archivo,$version,$rep);
-    $checkL = &checksum($usuario,$archivo);
-  }
-  &arreglarRep($usuario,$proyecto,$archivo,$version,@arreglar) if (scalar @arreglar);
+    my $usuario  = shift;
+    my $proyecto = shift;
+    my $archivo  = shift;
+    my $version  = shift;
+    my $checkL;
+    my $checkR;
+    my @arreglar;
+    my $rep;
+    # if (defined($version)) {
+    #print "error\n" unless (&versionOK($usuario,$proyecto,$archivo,$version));
+    #}else{
+    #$version = &getVersion($usuario,$proyecto,$archivo);
+    #}
+
+    $version = &getVersion($usuario,$proyecto,$archivo) if (!defined($version));
+    print "Pull:  usuario $usuario, proyecto $proyecto, archivo $archivo, 
+    version $version\n" if LOG;
+    my $val = (&versionOK($usuario,$proyecto,$archivo,$version));
+    switch ($val) {
+        case 0 { return "Error: Version $version no existe\n" }
+        case 2 { return "Error: Proyecto $proyecto no existe\n" }
+        case 3 { return "Error: Usuario $usuario no existe\n" }
+        case 4 { return "Error: Archivo $archivo no existe\n" }
+    }
+    ($checkR,$rep,@arreglar) = &validarChecksum($usuario,$proyecto,$archivo,$version);
+    print "$checkR $checkL\n";
+    while ($checkR ne $checkL) {
+        &getFromRep($usuario,$proyecto,$archivo,$version,$rep);
+        $checkL = &checksum($usuario,$archivo);
+    }
+    &arreglarRep($usuario,$proyecto,$archivo,$version,@arreglar) if (scalar @arreglar);
+
+    return "Archivo $archivo actualizado\n";
 }
 
 sub versionOK{
@@ -563,13 +575,61 @@ sub versionOK{
   $archivo = "$usuario.$proyecto.$archivo";
   my $arch;
 
-    while (my($pid, $rep) = each %tablaNodos) {
+  return 2 unless &proyectoOK($proyecto);
+  return 3 unless &usuarioOK($usuario);
+  return 4 unless &archivoOK($archivo);
 
-        $arch = $rep->buscar_archivo($archivo); 
-        if (defined($arch)) {
-            my $versionTabla = $arch->contar_versiones();
-            return 0 if ($versionTabla < $version);
-            return 1;
+  while (my($pid, $rep) = each %tablaNodos) {
+
+      $arch = $rep->buscar_archivo($archivo); 
+      if (defined($arch)) {
+          my $versionTabla = $arch->contar_versiones();
+          return 0 if ($versionTabla < $version);
+          return 1;
+      }
+  }
+  return 0;
+}
+
+sub proyectoOK{
+    my $proyecto = shift;
+
+    while (my($pid, $rep) = each %tablaNodos) {
+        foreach my $pair ($rep->archivos_todos) {
+           my @aux = split('\.',$pair->[0]);
+           return 1 if ($proyecto eq $aux[1]);
+        }
+    }
+    return 0;
+}
+
+sub usuarioOK{
+    my $usuario = shift;
+
+    while (my($pid, $rep) = each %tablaNodos) {
+        foreach my $pair ($rep->archivos_todos) {
+           my @aux = split('\.',$pair->[0]);
+           return 1 if ($usuario eq $aux[0]);
+        }
+    }
+    return 0;
+}
+
+sub archivoOK{
+    my $archivo = shift;
+    my @archivo_aux = split('\.', $archivo);
+    shift @archivo_aux;
+    shift @archivo_aux;
+    $archivo = join('.', @archivo_aux);
+
+    print Dumper \%tablaNodos;
+    while (my($pid, $rep) = each %tablaNodos) {
+        foreach my $pair ($rep->archivos_todos) {
+            my @aux = split('\.',$pair->[0]);
+            shift @aux;
+            shift @aux; 
+            my $str = join('.',@aux);
+            return 1 if ($archivo eq $str);
         }
     }
     return 0;
@@ -828,9 +888,11 @@ sub getVersion {
 my $opt_string = 'd:k:u:v';
 my %opt;
 
+&uso() if scalar @ARGV < 6 or scalar @ARGV > 7;
+
 getopts("$opt_string", \%opt) or &uso();
 
-&uso() if $opt{h} or ( scalar @ARGV < 6 and scalar @ARGV > 7 );
+&uso() if $opt{h};
 $DEBUG   = 1 if $opt{v};
 
 if (POSIX::isdigit($opt{k} + 0)) {
