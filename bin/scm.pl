@@ -29,10 +29,6 @@ my $proyecto = $opt{p};
 my $coord = &getCoord;
 
 
-print $comando;
-#&uso if $comando eq "";
-
-print "proyecto $opt{p}\n";
 if ($opt{p} eq "")  {
   print STDERR << "EOF";
     Es necesario indicar el nombre del proyeto.
